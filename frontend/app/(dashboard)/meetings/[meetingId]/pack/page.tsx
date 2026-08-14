@@ -28,7 +28,7 @@ export default function BoardPackPage() {
       <div className="mx-auto max-w-2xl">
         <h1 className="text-2xl font-semibold tracking-tight">Board Pack</h1>
         <p className="mt-4 rounded-md border border-dashed border-border p-6 text-sm text-muted-foreground">
-          This meeting's agenda hasn't been published yet. The Board Pack
+          This meeting&apos;s agenda hasn&apos;t been published yet.. The Board Pack
           compiles automatically once the agenda is published — go to the
           Agenda tab and publish it first.
         </p>

@@ -29,8 +29,8 @@ export default function NewMeetingPage() {
         Create meeting
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        This is the meeting's Notice — date, time, location and admin.
-        You'll build the agenda in the next step.
+        This is the meeting&apos;s Notice — date, time, location and admin.
+        You&apos;ll build the agenda in the next step.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-6">

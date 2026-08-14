@@ -78,7 +78,7 @@ export default function SettingsPage() {
               <div>
                 <p className="text-sm font-medium">Action due-date reminders</p>
                 <p className="text-sm text-muted-foreground">
-                  Notify owners as an action's due date approaches.
+                  Notify owners as an action&apos;s due date approaches.
                 </p>
               </div>
               <Switch
