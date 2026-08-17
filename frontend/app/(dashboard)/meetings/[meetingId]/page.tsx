@@ -13,8 +13,11 @@ import {
   Eye
 } from "lucide-react";
 import Link from "next/link";
+import { use } from "react";
 
-export default function MeetingOverviewPage({ params }: { params: { meetingId: string } }) {
+export default function MeetingOverviewPage({ params }: { params: Promise<{ meetingId: string }> }) {
+  const { meetingId } = use(params);
+
   // Mock data for the meeting
   const meeting = {
     title: "August Board Meeting",
@@ -74,7 +77,7 @@ export default function MeetingOverviewPage({ params }: { params: { meetingId: s
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <Link href={`/meetings/${params.meetingId}/agenda`}>
+          <Link href={`/meetings/${meetingId}/agenda`}>
             <Button variant="outline" className="border-slate-300 text-slate-700 h-9 font-medium">
               Edit Agenda
             </Button>
