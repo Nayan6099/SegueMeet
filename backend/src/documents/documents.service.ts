@@ -12,6 +12,7 @@ import type { AuthenticatedUser } from '../auth/auth.types';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { QueryDocumentsDto } from './dto/query-documents.dto';
+import { AuditService } from '../audit/audit.service';
 
 /** Roles allowed to create, update, or delete documents. */
 const EDIT_ROLES: OrganisationRole[] = [
@@ -27,6 +28,7 @@ export class DocumentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly organisationsService: OrganisationsService,
+    private readonly auditService: AuditService,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -128,7 +130,7 @@ export class DocumentsService {
     }
 
     try {
-      return await this.prisma.document.create({
+      const document = await this.prisma.document.create({
         data: {
           organisationId: dto.organisationId,
           fileName: dto.fileName,
@@ -141,6 +143,17 @@ export class DocumentsService {
           uploadedById: user.id,
         },
       });
+
+      this.auditService.log({
+        organisationId: dto.organisationId,
+        actorId: user.id,
+        action: 'document.created',
+        entityType: 'Document',
+        entityId: document.id,
+        payload: { fileName: dto.fileName, originalName: dto.originalName },
+      });
+
+      return document;
     } catch (error) {
       this.logger.error(
         `Failed to create document for org ${dto.organisationId}`,
@@ -250,7 +263,7 @@ export class DocumentsService {
     }
 
     try {
-      return await this.prisma.document.update({
+      const updated = await this.prisma.document.update({
         where: { id },
         data: {
           ...(dto.fileName !== undefined && { fileName: dto.fileName }),
@@ -265,6 +278,17 @@ export class DocumentsService {
           }),
         },
       });
+
+      this.auditService.log({
+        organisationId: doc.organisationId,
+        actorId: user.id,
+        action: 'document.updated',
+        entityType: 'Document',
+        entityId: id,
+        payload: { fileName: dto.fileName, originalName: dto.originalName },
+      });
+
+      return updated;
     } catch (error) {
       this.logger.error(
         `Failed to update document ${id}`,
@@ -300,6 +324,15 @@ export class DocumentsService {
 
     try {
       await this.prisma.document.delete({ where: { id } });
+
+      this.auditService.log({
+        organisationId: doc.organisationId,
+        actorId: user.id,
+        action: 'document.deleted',
+        entityType: 'Document',
+        entityId: id,
+      });
+
       return { message: 'Document deleted successfully' };
     } catch (error) {
       this.logger.error(
