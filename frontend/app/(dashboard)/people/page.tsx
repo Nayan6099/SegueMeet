@@ -1,0 +1,156 @@
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { mockPeople } from "@/lib/mock-people";
+import { User, ExternalLink, Info, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
+
+export default function PeoplePage() {
+  const boardMembers = mockPeople.filter(p => p.isBoardMember);
+  const otherMembers = mockPeople.filter(p => !p.isBoardMember);
+
+  const renderEmptyState = (message: string) => (
+    <div className="border rounded-xl bg-white p-24 flex flex-col items-center justify-center text-center shadow-sm">
+      <div className="bg-gray-50 p-4 rounded-2xl mb-4">
+        <User className="w-8 h-8 text-slate-400" />
+      </div>
+      <p className="text-slate-600 text-sm">{message}</p>
+    </div>
+  );
+
+  const renderPeopleList = (people: typeof mockPeople) => {
+    return (
+      <div className="border rounded-xl bg-white overflow-hidden shadow-sm">
+        <table className="w-full text-sm text-left">
+          <thead className="bg-gray-50 text-slate-500 border-b">
+            <tr>
+              <th className="px-6 py-4 font-medium">Name</th>
+              <th className="px-6 py-4 font-medium">Roles</th>
+              <th className="px-6 py-4 font-medium">Email</th>
+              <th className="px-6 py-4 font-medium">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {people.map(person => (
+              <tr key={person.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-6 py-4 font-medium text-slate-800 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
+                    {person.name.charAt(0)}
+                  </div>
+                  {person.name}
+                </td>
+                <td className="px-6 py-4">
+                  <div className="flex flex-wrap gap-2">
+                    {person.roles.map(role => (
+                      <span key={role} className="px-2 py-1 bg-gray-100 text-slate-600 rounded-md text-xs font-medium">
+                        {role}
+                      </span>
+                    ))}
+                  </div>
+                </td>
+                <td className="px-6 py-4 text-slate-500">{person.email}</td>
+                <td className="px-6 py-4">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center w-fit gap-1.5 ${
+                    person.status === "Active" ? "bg-green-100 text-green-700" :
+                    person.status === "Pending" ? "bg-yellow-100 text-yellow-700" :
+                    "bg-gray-100 text-gray-700"
+                  }`}>
+                    {person.status === "Active" && <CheckCircle2 className="w-3 h-3" />}
+                    {person.status}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  return (
+    <div className="p-8 max-w-6xl mx-auto space-y-8">
+      {/* Header */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-semibold flex items-baseline gap-2 text-slate-800">
+            People 
+            <span className="text-sm font-normal text-muted-foreground ml-2">
+              Manage and view your Board and Team
+            </span>
+          </h1>
+        </div>
+        <Button className="bg-slate-800 hover:bg-slate-700 text-white rounded-full px-6">
+          + Add Person
+        </Button>
+      </div>
+
+      <Tabs defaultValue="people" className="w-full">
+        <div className="flex items-center justify-between border-b pb-0 mb-6">
+          <TabsList className="bg-transparent h-auto p-0 rounded-none border-none space-x-6">
+            <TabsTrigger 
+              value="people" 
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-semibold text-slate-700"
+            >
+              People List
+            </TabsTrigger>
+            <TabsTrigger 
+              value="profile"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-muted-foreground"
+            >
+              Board Profile
+            </TabsTrigger>
+            <TabsTrigger 
+              value="changes"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-muted-foreground"
+            >
+              Changes Log
+            </TabsTrigger>
+            <TabsTrigger 
+              value="interests"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-muted-foreground"
+            >
+              Interests Register
+            </TabsTrigger>
+          </TabsList>
+          
+          <Link href="#" className="flex items-center text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors">
+            Access Levels <ExternalLink className="ml-1.5 w-4 h-4" />
+          </Link>
+        </div>
+
+        <TabsContent value="people" className="mt-0 space-y-8">
+          
+          {/* Email Confirmation Banner (Mock) */}
+          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex gap-3 text-sm">
+            <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-slate-800">Confirm your email</p>
+              <p className="text-slate-600 mt-1">Check inbox to confirm your email address. Didn't receive the email? <button className="font-semibold underline hover:text-slate-800">Resend</button></p>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">Board Members</h3>
+            {boardMembers.length === 0 ? renderEmptyState("No Board Members listed") : renderPeopleList(boardMembers)}
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">Team & Guests</h3>
+            {otherMembers.length === 0 ? renderEmptyState("No other members listed") : renderPeopleList(otherMembers)}
+          </div>
+
+        </TabsContent>
+        
+        {/* Empty placeholder tabs for the others for now */}
+        <TabsContent value="profile" className="mt-0">
+          {renderEmptyState("Board Profile configuration not yet built.")}
+        </TabsContent>
+        <TabsContent value="changes" className="mt-0">
+          {renderEmptyState("No changes logged.")}
+        </TabsContent>
+        <TabsContent value="interests" className="mt-0">
+          {renderEmptyState("Interests Register moved to its own module.")}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

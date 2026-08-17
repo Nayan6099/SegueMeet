@@ -1,139 +1,181 @@
 "use client";
 
-import { useState } from "react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Plus } from "lucide-react";
 
 export default function SettingsPage() {
-  // Phase 1/2: local state only, no backend yet.
-  // This is where GET/PATCH /organisations/:id plugs in later.
-  const [orgName, setOrgName] = useState("Acme Co.");
-  const [meetingReminders, setMeetingReminders] = useState(true);
-  const [actionReminders, setActionReminders] = useState(true);
-  const [allowDownloadPrint, setAllowDownloadPrint] = useState(true);
-  const [saved, setSaved] = useState(false);
-
-  function handleSave() {
-    // NOTE: no backend yet — simulate save.
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  }
-
   return (
-    <div className="mx-auto max-w-2xl">
-      <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Organisation details and notification preferences.
-      </p>
+    <div className="p-8 max-w-5xl mx-auto space-y-8">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <h1 className="text-xl font-semibold flex items-baseline gap-2 text-slate-800">
+            General Settings
+            <span className="text-sm font-normal text-muted-foreground ml-2">
+              Manage your organisation's preferences and settings
+            </span>
+          </h1>
+        </div>
+      </div>
 
-      <Tabs defaultValue="general" className="mt-6">
-        <TabsList>
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="general" className="w-full">
+        <div className="flex items-center justify-between border-b pb-0 mb-6">
+          <TabsList className="bg-transparent h-auto p-0 rounded-none border-none space-x-6">
+            <TabsTrigger
+              value="general"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-semibold text-slate-700 hover:text-slate-900"
+            >
+              General Settings
+            </TabsTrigger>
+            <TabsTrigger
+              value="quorum"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-slate-500 hover:text-slate-700"
+            >
+              Quorum & Participation
+            </TabsTrigger>
+            <TabsTrigger
+              value="security"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-slate-500 hover:text-slate-700"
+            >
+              Security
+            </TabsTrigger>
+            <TabsTrigger
+              value="ai"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-slate-500 hover:text-slate-700"
+            >
+              BoardPro AI
+            </TabsTrigger>
+            <TabsTrigger
+              value="notifications"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-slate-500 hover:text-slate-700"
+            >
+              Notifications
+            </TabsTrigger>
+            <TabsTrigger
+              value="locations"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-slate-500 hover:text-slate-700"
+            >
+              Meeting Locations
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-        {/* General */}
-        <TabsContent value="general" className="mt-6 space-y-6">
-          <div className="rounded-md border border-border bg-card p-6">
-            <h2 className="text-sm font-medium">Organisation</h2>
-            <div className="mt-4 space-y-2">
-              <Label htmlFor="orgName">Organisation name</Label>
-              <Input
-                id="orgName"
-                value={orgName}
-                onChange={(e) => setOrgName(e.target.value)}
-                className="max-w-sm"
-              />
+        <div className="flex justify-end mb-6">
+          <Button disabled className="bg-slate-200 text-slate-400 font-medium px-6 h-9 rounded-md">
+            Save Changes
+          </Button>
+        </div>
+
+        <TabsContent value="general" className="mt-0">
+          <div className="divide-y divide-slate-100 bg-white border border-slate-100 rounded-lg p-8 shadow-sm">
+            
+            {/* Organisation Name */}
+            <div className="grid grid-cols-3 gap-12 py-6 first:pt-0">
+              <div className="col-span-1">
+                <h3 className="text-sm font-medium text-slate-800">Organisation Name</h3>
+                <p className="text-sm text-slate-500 mt-1">Used on Agenda and Minutes.</p>
+              </div>
+              <div className="col-span-2">
+                <Input defaultValue="Kartikey Tech" className="max-w-2xl text-slate-700 h-10 border-slate-200" />
+              </div>
             </div>
+
+            {/* Short Name */}
+            <div className="grid grid-cols-3 gap-12 py-6">
+              <div className="col-span-1">
+                <h3 className="text-sm font-medium text-slate-800">Short Name</h3>
+                <p className="text-sm text-slate-500 mt-1">Used on the application interface.</p>
+              </div>
+              <div className="col-span-2">
+                <Input className="max-w-2xl h-10 border-slate-200" />
+              </div>
+            </div>
+
+            {/* Country of Operation */}
+            <div className="grid grid-cols-3 gap-12 py-6">
+              <div className="col-span-1">
+                <h3 className="text-sm font-medium text-slate-800">Country of Operation</h3>
+                <p className="text-sm text-slate-500 mt-1">Primary Country for this organisation.</p>
+                <p className="text-sm text-slate-500 mt-2">Contact BoardPro support if the country needs to be changed.</p>
+              </div>
+              <div className="col-span-2">
+                <Input defaultValue="India" disabled className="max-w-2xl h-10 border-slate-200 bg-slate-50 text-slate-500" />
+              </div>
+            </div>
+
+            {/* Organisation Language */}
+            <div className="grid grid-cols-3 gap-12 py-6">
+              <div className="col-span-1">
+                <h3 className="text-sm font-medium text-slate-800">Organisation Language</h3>
+                <p className="text-sm text-slate-500 mt-1">Used on the PDFs for this organisation.</p>
+              </div>
+              <div className="col-span-2">
+                <Select defaultValue="nz">
+                  <SelectTrigger className="max-w-2xl h-10 border-slate-200 text-slate-700 bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nz">(en-NZ) New Zealand English</SelectItem>
+                    <SelectItem value="us">(en-US) US English</SelectItem>
+                    <SelectItem value="uk">(en-GB) British English</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Logo */}
+            <div className="grid grid-cols-3 gap-12 py-6">
+              <div className="col-span-1">
+                <h3 className="text-sm font-medium text-slate-800">Logo</h3>
+                <p className="text-sm text-slate-500 mt-1">Used on the generated PDF's, such as Agenda, Board Pack, Minutes, etc.</p>
+              </div>
+              <div className="col-span-2">
+                <div className="max-w-2xl border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center p-8 bg-slate-50/50 hover:bg-slate-50 transition-colors cursor-pointer">
+                  <Plus className="w-5 h-5 text-slate-400 mb-3" />
+                  <p className="text-sm text-slate-600 mb-2">
+                    Drag and drop your files here, or <span className="text-blue-600 font-medium">click to browse</span>
+                  </p>
+                  <p className="text-xs text-slate-400">Recommended dimensions: 200px x 100px, 1MB limit.</p>
+                  <p className="text-xs text-slate-400 mt-1">Allowed types: .png, .jpeg, .jpg, .gif</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Icon */}
+            <div className="grid grid-cols-3 gap-12 py-6 pb-2">
+              <div className="col-span-1">
+                <h3 className="text-sm font-medium text-slate-800">Icon</h3>
+                <p className="text-sm text-slate-500 mt-1">Used in the web and application interfaces.</p>
+              </div>
+              <div className="col-span-2">
+                <div className="max-w-2xl border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center p-8 bg-slate-50/50 hover:bg-slate-50 transition-colors cursor-pointer">
+                  <Plus className="w-5 h-5 text-slate-400 mb-3" />
+                  <p className="text-sm text-slate-600 mb-2">
+                    Drag and drop your files here, or <span className="text-blue-600 font-medium">click to browse</span>
+                  </p>
+                  <p className="text-xs text-slate-400">Recommended dimensions: 84px x 84px, 1MB limit.</p>
+                  <p className="text-xs text-slate-400 mt-1">Allowed types: .png, .jpeg, .jpg, .gif</p>
+                </div>
+              </div>
+            </div>
+
           </div>
         </TabsContent>
-
-        {/* Notifications */}
-        <TabsContent value="notifications" className="mt-6 space-y-6">
-          <div className="rounded-md border border-border bg-card p-6 space-y-5">
-            <h2 className="text-sm font-medium">Reminders</h2>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Meeting reminders</p>
-                <p className="text-sm text-muted-foreground">
-                  Email attendees before an upcoming meeting.
-                </p>
-              </div>
-              <Switch
-                checked={meetingReminders}
-                onCheckedChange={setMeetingReminders}
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Action due-date reminders</p>
-                <p className="text-sm text-muted-foreground">
-                  Notify owners as an action&apos;s due date approaches.
-                </p>
-              </div>
-              <Switch
-                checked={actionReminders}
-                onCheckedChange={setActionReminders}
-              />
-            </div>
-
-            <p className="text-xs text-muted-foreground">
-              Note: publishing an agenda or confirming minutes never sends
-              email automatically — sending is always a separate, explicit
-              step, regardless of these settings.
-            </p>
-          </div>
-        </TabsContent>
-
-        {/* Security */}
-        <TabsContent value="security" className="mt-6 space-y-6">
-          <div className="rounded-md border border-border bg-card p-6 space-y-5">
-            <h2 className="text-sm font-medium">Document access</h2>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">
-                  Allow download &amp; print
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Let board members download or print board packs and
-                  documents.
-                </p>
-              </div>
-              <Switch
-                checked={allowDownloadPrint}
-                onCheckedChange={setAllowDownloadPrint}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              MFA and per-person access levels are managed once
-              Authentication (Phase 5) is built — this section will grow
-              here.
-            </p>
-          </div>
+        
+        {/* Empty state for other tabs just in case */}
+        <TabsContent value="quorum">
+          <div className="p-8 text-center text-slate-500 border rounded-lg bg-white mt-8">Quorum settings coming soon.</div>
         </TabsContent>
       </Tabs>
-
-      <div className="mt-6 flex items-center gap-3">
-        <button
-          onClick={handleSave}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-        >
-          Save changes
-        </button>
-        {saved && (
-          <span className="text-sm text-muted-foreground">Saved</span>
-        )}
-      </div>
     </div>
   );
 }

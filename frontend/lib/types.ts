@@ -24,3 +24,19 @@ export interface AgendaSection {
   title: string;
   items: AgendaItem[];
 }
+
+export type MinuteBlockType = "note" | "decision" | "action";
+
+
+export interface MinuteBlock {
+  id: string;
+  agendaItemId: string;
+  blockType: MinuteBlockType;
+  content: string;
+  decisionOutcome?: "approved" | "rejected" | "deferred";
+  mover?: string;
+  seconder?: string;
+  actionOwner?: string;
+  actionDueDate?: string;
+  actionStatus?: "open" | "in_progress" | "completed" | "cancelled" | "overdue";
+}
