@@ -1,0 +1,284 @@
+// Generator
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Datasource
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum OrganisationRole {
+  BOARD_ADMIN
+  CHAIR
+  SECRETARY
+  BOARD_MEMBER
+  EXECUTIVE
+  GUEST
+}
+
+enum MeetingStatus {
+  DRAFT
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum AgendaStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum MinutesStatus {
+  NOT_STARTED
+  DRAFT
+  IN_REVIEW
+  CONFIRMED
+}
+
+enum AgendaItemPurpose {
+  NONE
+  FOR_NOTING
+  FOR_DECISION
+  FOR_DISCUSSION
+}
+
+enum ActionItemStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+}
+
+enum NotificationType {
+  MEETING_CREATED
+  MEETING_UPDATED
+  MEETING_CANCELLED
+  AGENDA_PUBLISHED
+  MINUTES_CONFIRMED
+  ACTION_ITEM_ASSIGNED
+  DOCUMENT_UPLOADED
+}
+
+// ─────────────────────────────────────────────
+// MODELS
+// ─────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  /// Bcrypt-hashed password — set once auth module is built.
+  passwordHash String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships         OrganisationMember[]
+  assignedActionItems MinutesActionItem[]  @relation("ActionAssignee")
+  auditLogs           AuditLog[]
+  notifications       Notification[]
+
+  @@map("users")
+}
+
+model Organisation {
+  id        String   @id @default(uuid())
+  name      String
+  /// Per-org notification preferences (stored as JSON for flexibility)
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members       OrganisationMember[]
+  meetings      Meeting[]
+  documents     Document[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+
+  @@map("organisations")
+}
+
+model OrganisationMember {
+  id             String           @id @default(uuid())
+  organisationId String
+  userId         String
+  role           OrganisationRole @default(BOARD_MEMBER)
+  joinedAt       DateTime         @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// A user may only have one membership record per organisation.
+  @@unique([organisationId, userId])
+  @@index([organisationId])
+  @@index([userId])
+  @@map("organisation_members")
+}
+
+model Meeting {
+  id             String        @id @default(uuid())
+  organisationId String
+  title          String
+  date           String /// ISO date "YYYY-MM-DD"
+  startTime      String /// "HH:MM"
+  endTime        String /// "HH:MM"
+  location       String
+  isRemote       Boolean       @default(false)
+  administrator  String? /// Free-text until People module exists
+  notes          String?
+  status         MeetingStatus @default(DRAFT)
+  agendaStatus   AgendaStatus  @default(DRAFT)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organisation   Organisation    @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  agendaSections AgendaSection[]
+  minutes        Minutes?
+  documents      Document[]
+
+  @@index([organisationId])
+  @@index([date])
+  @@map("meetings")
+}
+
+model AgendaSection {
+  id        String   @id @default(uuid())
+  meetingId String
+  title     String
+  /// Display order within the meeting agenda (0-based)
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  meeting Meeting      @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  items   AgendaItem[]
+
+  @@index([meetingId])
+  @@map("agenda_sections")
+}
+
+model AgendaItem {
+  id              String            @id @default(uuid())
+  sectionId       String
+  title           String
+  purpose         AgendaItemPurpose @default(NONE)
+  presenter       String?
+  durationMinutes Int               @default(5)
+  /// Display order within the section (0-based)
+  position        Int               @default(0)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  section   AgendaSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  documents Document[]
+
+  @@index([sectionId])
+  @@map("agenda_items")
+}
+
+model Minutes {
+  id        String        @id @default(uuid())
+  meetingId String        @unique
+  status    MinutesStatus @default(NOT_STARTED)
+  content   String? /// Freeform rich-text or JSON from editor
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  meeting     Meeting             @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  actionItems MinutesActionItem[]
+
+  @@map("minutes")
+}
+
+model MinutesActionItem {
+  id          String           @id @default(uuid())
+  minutesId   String
+  description String
+  assigneeId  String? /// nullable — may be unassigned
+  dueDate     String? /// ISO date "YYYY-MM-DD"
+  status      ActionItemStatus @default(OPEN)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  minutes  Minutes @relation(fields: [minutesId], references: [id], onDelete: Cascade)
+  assignee User?   @relation("ActionAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([minutesId])
+  @@index([assigneeId])
+  @@map("minutes_action_items")
+}
+
+model Document {
+  id             String   @id @default(uuid())
+  organisationId String
+  meetingId      String?
+  agendaItemId   String?
+  fileName       String
+  /// Original filename supplied by the uploader
+  originalName   String
+  mimeType       String
+  /// Size in bytes
+  sizeBytes      Int
+  /// Storage path (local filesystem or S3 key)
+  storagePath    String
+  uploadedById   String?
+  createdAt      DateTime @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  meeting      Meeting?     @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  agendaItem   AgendaItem?  @relation(fields: [agendaItemId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId])
+  @@index([meetingId])
+  @@index([agendaItemId])
+  @@map("documents")
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  organisationId String
+  actorId        String? /// nullable — system actions have no actor
+  action         String /// e.g. "meeting.created", "agenda.published"
+  entityType     String /// e.g. "Meeting", "AgendaSection"
+  entityId       String
+  /// Before/after snapshot stored as JSON for full auditability
+  payload        Json?
+  createdAt      DateTime @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId])
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id             String           @id @default(uuid())
+  organisationId String
+  recipientId    String
+  type           NotificationType
+  title          String
+  message        String
+  isRead         Boolean          @default(false)
+  /// Plain string following the AuditLog entityType/entityId pattern — no polymorphic FK.
+  entityType     String?
+  entityId       String?
+  createdAt      DateTime         @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  recipient    User         @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId])
+  @@index([organisationId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}

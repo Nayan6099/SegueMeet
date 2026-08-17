@@ -1,0 +1,26 @@
+import { IsString, IsNotEmpty, IsOptional, IsEnum, IsInt, Min } from 'class-validator';
+import { AgendaItemPurpose } from '@prisma/client';
+
+export class CreateAgendaItemDto {
+  @IsString()
+  @IsNotEmpty()
+  title: string;
+
+  @IsOptional()
+  @IsEnum(AgendaItemPurpose)
+  purpose?: AgendaItemPurpose;
+
+  @IsOptional()
+  @IsString()
+  presenter?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  durationMinutes?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  position?: number;
+}
