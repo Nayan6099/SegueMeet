@@ -12,6 +12,7 @@ import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { UpdateMeetingDto } from './dto/update-meeting.dto';
 import { QueryMeetingsDto } from './dto/query-meetings.dto';
 import { OrganisationRole, Prisma } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class MeetingsService {
@@ -33,6 +34,7 @@ export class MeetingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly organisationsService: OrganisationsService,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -60,6 +62,16 @@ export class MeetingsService {
           status: dto.status,
         },
       });
+
+      this.auditService.log({
+        organisationId: dto.organisationId,
+        actorId: user.id,
+        action: 'meeting.created',
+        entityType: 'Meeting',
+        entityId: meeting.id,
+        payload: { title: dto.title, date: dto.date },
+      });
+
       return meeting;
     } catch (error) {
       this.logger.error(
@@ -179,6 +191,16 @@ export class MeetingsService {
           agendaStatus: dto.agendaStatus,
         },
       });
+
+      this.auditService.log({
+        organisationId: meeting.organisationId,
+        actorId: user.id,
+        action: 'meeting.updated',
+        entityType: 'Meeting',
+        entityId: id,
+        payload: { title: dto.title, status: dto.status },
+      });
+
       return updated;
     } catch (error) {
       this.logger.error(
@@ -218,6 +240,15 @@ export class MeetingsService {
       await this.prisma.meeting.delete({
         where: { id },
       });
+
+      this.auditService.log({
+        organisationId: meeting.organisationId,
+        actorId: user.id,
+        action: 'meeting.deleted',
+        entityType: 'Meeting',
+        entityId: id,
+      });
+
       return { message: 'Meeting deleted successfully' };
     } catch (error) {
       this.logger.error(

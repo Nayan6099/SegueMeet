@@ -14,6 +14,7 @@ import { CreateMinutesDto } from './dto/create-minutes.dto';
 import { UpdateMinutesDto } from './dto/update-minutes.dto';
 import { CreateActionItemDto } from './dto/create-action-item.dto';
 import { UpdateActionItemDto } from './dto/update-action-item.dto';
+import { AuditService } from '../audit/audit.service';
 
 /** Roles permitted to create, update, or delete Minutes and Action Items. */
 const EDIT_ROLES: OrganisationRole[] = [
@@ -29,6 +30,7 @@ export class MinutesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly organisationsService: OrganisationsService,
+    private readonly auditService: AuditService,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -139,7 +141,7 @@ export class MinutesService {
     }
 
     try {
-      return await this.prisma.minutes.create({
+      const minutes = await this.prisma.minutes.create({
         data: {
           meetingId,
           status: dto.status,
@@ -147,6 +149,17 @@ export class MinutesService {
         },
         include: { actionItems: true },
       });
+
+      this.auditService.log({
+        organisationId: meeting.organisationId,
+        actorId: user.id,
+        action: 'minutes.created',
+        entityType: 'Minutes',
+        entityId: minutes.id,
+        payload: { meetingId, status: dto.status },
+      });
+
+      return minutes;
     } catch (error) {
       // meetingId is @unique in the Minutes model → P2002 means a duplicate
       if (
@@ -234,7 +247,7 @@ export class MinutesService {
     }
 
     try {
-      return await this.prisma.minutes.update({
+      const updated = await this.prisma.minutes.update({
         where: { id: minutesId },
         data: {
           status: dto.status,
@@ -242,6 +255,17 @@ export class MinutesService {
         },
         include: { actionItems: true },
       });
+
+      this.auditService.log({
+        organisationId: minutes.meeting.organisationId,
+        actorId: user.id,
+        action: 'minutes.updated',
+        entityType: 'Minutes',
+        entityId: minutesId,
+        payload: { status: dto.status },
+      });
+
+      return updated;
     } catch (error) {
       this.logger.error(
         `Failed to update minutes ${minutesId}`,
@@ -273,6 +297,15 @@ export class MinutesService {
 
     try {
       await this.prisma.minutes.delete({ where: { id: minutesId } });
+
+      this.auditService.log({
+        organisationId: minutes.meeting.organisationId,
+        actorId: user.id,
+        action: 'minutes.deleted',
+        entityType: 'Minutes',
+        entityId: minutesId,
+      });
+
       return { message: 'Minutes deleted successfully' };
     } catch (error) {
       this.logger.error(
@@ -315,7 +348,7 @@ export class MinutesService {
     }
 
     try {
-      return await this.prisma.minutesActionItem.create({
+      const item = await this.prisma.minutesActionItem.create({
         data: {
           minutesId,
           description: dto.description,
@@ -327,6 +360,17 @@ export class MinutesService {
           assignee: { select: { id: true, name: true, email: true } },
         },
       });
+
+      this.auditService.log({
+        organisationId,
+        actorId: user.id,
+        action: 'action_item.created',
+        entityType: 'MinutesActionItem',
+        entityId: item.id,
+        payload: { minutesId, description: dto.description, status: dto.status },
+      });
+
+      return item;
     } catch (error) {
       this.logger.error(
         `Failed to create action item for minutes ${minutesId}`,
@@ -364,7 +408,7 @@ export class MinutesService {
     }
 
     try {
-      return await this.prisma.minutesActionItem.update({
+      const updated = await this.prisma.minutesActionItem.update({
         where: { id: actionItemId },
         data: {
           description: dto.description,
@@ -377,6 +421,17 @@ export class MinutesService {
           assignee: { select: { id: true, name: true, email: true } },
         },
       });
+
+      this.auditService.log({
+        organisationId,
+        actorId: user.id,
+        action: 'action_item.updated',
+        entityType: 'MinutesActionItem',
+        entityId: actionItemId,
+        payload: { description: dto.description, status: dto.status },
+      });
+
+      return updated;
     } catch (error) {
       this.logger.error(
         `Failed to update action item ${actionItemId}`,
@@ -406,6 +461,15 @@ export class MinutesService {
 
     try {
       await this.prisma.minutesActionItem.delete({ where: { id: actionItemId } });
+
+      this.auditService.log({
+        organisationId,
+        actorId: user.id,
+        action: 'action_item.deleted',
+        entityType: 'MinutesActionItem',
+        entityId: actionItemId,
+      });
+
       return { message: 'Action item deleted successfully' };
     } catch (error) {
       this.logger.error(

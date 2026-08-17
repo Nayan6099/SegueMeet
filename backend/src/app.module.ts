@@ -6,6 +6,8 @@ import { DatabaseModule } from './common/database/database.module';
 import { AuthModule } from './auth/auth.module';
 import { OrganisationsModule } from './organisations/organisations.module';
 import { MeetingsModule } from './meetings/meetings.module';
+import { BoardPackModule } from './board-pack/board-pack.module';
+import { AuditModule } from './audit/audit.module';
 import { AgendaModule } from './agenda/agenda.module';
 import { MinutesModule } from './minutes/minutes.module';
 import { DocumentsModule } from './documents/documents.module';
@@ -37,6 +39,12 @@ import { NotificationsModule } from './notifications/notifications.module';
 
     /** Meetings — CRUD, tenant-isolated meeting management */
     MeetingsModule,
+
+    /** BoardPack — Meeting board pack JSON + PDF generation */
+    BoardPackModule,
+
+    /** Audit — System audit logging */
+    AuditModule,
 
     /** Agenda — Sections and Items management */
     AgendaModule,

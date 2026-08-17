@@ -10,13 +10,17 @@ import { PrismaService } from '../common/database/prisma.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { UpdateOrganisationDto } from './dto/update-organisation.dto';
 import { AddMemberDto } from './dto/add-member.dto';
+import { AuditService } from '../audit/audit.service';
 
 /** Roles that have administrative permissions within an organisation. */
 const ADMIN_ROLES: OrganisationRole[] = [OrganisationRole.BOARD_ADMIN];
 
 @Injectable()
 export class OrganisationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   // ─────────────────────────────────────────────
   // ORGANISATION CRUD
@@ -71,7 +75,7 @@ export class OrganisationsService {
       throw new NotFoundException('Organisation not found');
     }
 
-    return this.prisma.organisation.update({
+    const updatedOrg = await this.prisma.organisation.update({
       where: { id: organisationId },
       data: {
         ...(dto.name !== undefined && { name: dto.name.trim() }),
@@ -86,6 +90,17 @@ export class OrganisationsService {
         updatedAt: true,
       },
     });
+
+    this.auditService.log({
+      organisationId,
+      actorId: requestingUser.id,
+      action: 'organisation.updated',
+      entityType: 'Organisation',
+      entityId: organisationId,
+      payload: { name: dto.name, settings: dto.settings },
+    });
+
+    return updatedOrg;
   }
 
   // ─────────────────────────────────────────────
@@ -194,6 +209,15 @@ export class OrganisationsService {
       },
     });
 
+    this.auditService.log({
+      organisationId,
+      actorId: requestingUser.id,
+      action: 'organisation.member_added',
+      entityType: 'OrganisationMember',
+      entityId: membership.id,
+      payload: { userId: targetUser.id, role: dto.role },
+    });
+
     return membership;
   }
 
@@ -260,6 +284,15 @@ export class OrganisationsService {
     // Delete the membership record (NOT the user account)
     await this.prisma.organisationMember.delete({
       where: { id: membership.id },
+    });
+
+    this.auditService.log({
+      organisationId,
+      actorId: requestingUser.id,
+      action: 'organisation.member_removed',
+      entityType: 'OrganisationMember',
+      entityId: membership.id,
+      payload: { userId: targetUserId, role: membership.role },
     });
 
     return { message: 'Member removed from the organisation successfully' };

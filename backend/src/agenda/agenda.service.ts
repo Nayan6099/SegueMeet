@@ -13,6 +13,7 @@ import { UpdateAgendaSectionDto } from './dto/update-agenda-section.dto';
 import { CreateAgendaItemDto } from './dto/create-agenda-item.dto';
 import { UpdateAgendaItemDto } from './dto/update-agenda-item.dto';
 import { OrganisationRole } from '@prisma/client';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class AgendaService {
@@ -28,6 +29,7 @@ export class AgendaService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly organisationsService: OrganisationsService,
+    private readonly auditService: AuditService,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -55,13 +57,24 @@ export class AgendaService {
     }
 
     try {
-      return await this.prisma.agendaSection.create({
+      const section = await this.prisma.agendaSection.create({
         data: {
           meetingId,
           title: dto.title,
           position: dto.position ?? 0,
         },
       });
+
+      this.auditService.log({
+        organisationId: meeting.organisationId,
+        actorId: user.id,
+        action: 'agenda_section.created',
+        entityType: 'AgendaSection',
+        entityId: section.id,
+        payload: { meetingId, title: dto.title },
+      });
+
+      return section;
     } catch (error) {
       this.logger.error(
         `Failed to create agenda section for meeting ${meetingId}`,
@@ -128,13 +141,24 @@ export class AgendaService {
     }
 
     try {
-      return await this.prisma.agendaSection.update({
+      const updated = await this.prisma.agendaSection.update({
         where: { id: sectionId },
         data: {
           title: dto.title,
           position: dto.position,
         },
       });
+
+      this.auditService.log({
+        organisationId: section.meeting.organisationId,
+        actorId: user.id,
+        action: 'agenda_section.updated',
+        entityType: 'AgendaSection',
+        entityId: sectionId,
+        payload: { title: dto.title, position: dto.position },
+      });
+
+      return updated;
     } catch (error) {
       this.logger.error(
         `Failed to update agenda section ${sectionId}`,
@@ -164,6 +188,15 @@ export class AgendaService {
       await this.prisma.agendaSection.delete({
         where: { id: sectionId },
       });
+
+      this.auditService.log({
+        organisationId: section.meeting.organisationId,
+        actorId: user.id,
+        action: 'agenda_section.deleted',
+        entityType: 'AgendaSection',
+        entityId: sectionId,
+      });
+
       return { message: 'Agenda section deleted successfully' };
     } catch (error) {
       this.logger.error(
@@ -199,7 +232,7 @@ export class AgendaService {
     }
 
     try {
-      return await this.prisma.agendaItem.create({
+      const item = await this.prisma.agendaItem.create({
         data: {
           sectionId,
           title: dto.title,
@@ -209,6 +242,17 @@ export class AgendaService {
           position: dto.position ?? 0,
         },
       });
+
+      this.auditService.log({
+        organisationId: section.meeting.organisationId,
+        actorId: user.id,
+        action: 'agenda_item.created',
+        entityType: 'AgendaItem',
+        entityId: item.id,
+        payload: { sectionId, title: dto.title },
+      });
+
+      return item;
     } catch (error) {
       this.logger.error(
         `Failed to create agenda item in section ${sectionId}`,
@@ -243,7 +287,7 @@ export class AgendaService {
     }
 
     try {
-      return await this.prisma.agendaItem.update({
+      const updated = await this.prisma.agendaItem.update({
         where: { id: itemId },
         data: {
           title: dto.title,
@@ -253,6 +297,17 @@ export class AgendaService {
           position: dto.position,
         },
       });
+
+      this.auditService.log({
+        organisationId: item.section.meeting.organisationId,
+        actorId: user.id,
+        action: 'agenda_item.updated',
+        entityType: 'AgendaItem',
+        entityId: itemId,
+        payload: { title: dto.title, purpose: dto.purpose },
+      });
+
+      return updated;
     } catch (error) {
       this.logger.error(
         `Failed to update agenda item ${itemId}`,
@@ -286,6 +341,15 @@ export class AgendaService {
       await this.prisma.agendaItem.delete({
         where: { id: itemId },
       });
+
+      this.auditService.log({
+        organisationId: item.section.meeting.organisationId,
+        actorId: user.id,
+        action: 'agenda_item.deleted',
+        entityType: 'AgendaItem',
+        entityId: itemId,
+      });
+
       return { message: 'Agenda item deleted successfully' };
     } catch (error) {
       this.logger.error(
