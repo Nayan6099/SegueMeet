@@ -21,17 +21,17 @@ import type { AuthenticatedUser } from '../auth/auth.types';
  * delegated to BoardPackService.
  */
 @UseGuards(JwtAuthGuard)
-@Controller('board-pack')
+@Controller('meetings/:meetingId/board-pack')
 export class BoardPackController {
   constructor(private readonly boardPackService: BoardPackService) {}
 
   /**
-   * GET /board-pack/meetings/:meetingId
+   * GET /meetings/:meetingId/board-pack
    *
    * Returns the complete board-pack data as JSON.
    * Useful for frontend rendering or API consumers that build their own layout.
    */
-  @Get('meetings/:meetingId')
+  @Get()
   getBoardPackData(
     @Param('meetingId') meetingId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -40,14 +40,14 @@ export class BoardPackController {
   }
 
   /**
-   * GET /board-pack/meetings/:meetingId/pdf
+   * GET /meetings/:meetingId/board-pack/pdf
    *
    * Generates a PDF board pack and streams it as an attachment.
    * Returns Content-Type: application/pdf.
    * The StreamableFile returned by the service is automatically handled
    * by NestJS — no @Res() needed.
    */
-  @Get('meetings/:meetingId/pdf')
+  @Get('pdf')
   @Header('Content-Type', 'application/pdf')
   generatePdf(
     @Param('meetingId') meetingId: string,
