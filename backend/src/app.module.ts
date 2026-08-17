@@ -10,6 +10,7 @@ import { AgendaModule } from './agenda/agenda.module';
 import { MinutesModule } from './minutes/minutes.module';
 import { DocumentsModule } from './documents/documents.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { BoardPackModule } from './board-pack/board-pack.module';
 
 @Module({
   imports: [
@@ -49,6 +50,9 @@ import { NotificationsModule } from './notifications/notifications.module';
 
     /** Notifications — User notification read/manage API */
     NotificationsModule,
+
+    /** BoardPack — Meeting board pack JSON + PDF generation */
+    BoardPackModule,
   ],
   controllers: [AppController],
   providers: [AppService],
