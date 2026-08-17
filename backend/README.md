@@ -1,98 +1,119 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# SegueMeet Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## 1. Project Overview
+SegueMeet is a robust meeting management backend designed around a multi-tenant organisation model. It provides RESTful API endpoints to manage the complete lifecycle of board and executive meetings—from agenda planning and document attachments to minute-taking, action items, and board pack PDF generation.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 2. Tech Stack
+- **Framework**: NestJS (v11)
+- **Language**: TypeScript
+- **Database**: PostgreSQL
+- **ORM**: Prisma Client (v6)
+- **Authentication**: JWT (Passport/Bcrypt)
+- **PDF Generation**: PDFKit
 
-## Description
+## 3. Current Status
+The backend has completed the following phases:
+- **Phase 1: Foundation** (NestJS, Prisma, PostgreSQL schema)
+- **Phase 2: Auth & Organisations** (JWT registration/login, Tenant Isolation)
+- **Phase 3: Meetings** (CRUD, Role-based auth)
+- **Phase 4: Agenda** (Sections and Items management)
+- **Phase 5: Minutes** (Meeting minutes and Action Items)
+- **Phase 6: Documents** (Document metadata management)
+- **Phase 7: Board Pack / PDF Generation** (JSON data aggregation + PDF assembly)
+- **Phase 8: Notifications** (Read/manage API for user notifications)
+- **Phase 9: Audit Logging & Hardening** (System audit logging on key mutations, environment hardening)
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## 4. Implemented Endpoints
 
-## Project setup
+### Auth Module (`/auth`)
+- `POST /register` - Create a user and organisation (User becomes BOARD_ADMIN)
+- `POST /login` - Authenticate and receive a JWT
+- `POST /logout` - Stateless client-side logout
+- `GET /me` - Get current user profile and org memberships
 
-```bash
-$ npm install
-```
+### Organisations Module (`/organisations`)
+- `GET /:id` - Get organisation details
+- `PATCH /:id` - Update organisation
+- `GET /:id/members` - List organisation members
+- `POST /:id/members` - Add a member to the organisation
+- `DELETE /:id/members/:userId` - Remove a member
 
-## Compile and run the project
+### Meetings Module (`/meetings`)
+- `POST /` - Create a meeting
+- `GET /` - List meetings (query filters supported)
+- `GET /:id` - Get a meeting by ID
+- `PATCH /:id` - Update a meeting
+- `DELETE /:id` - Delete a meeting
 
-```bash
-# development
-$ npm run start
+### Agenda Module
+- `POST /meetings/:meetingId/agenda/sections` - Create a section
+- `GET /meetings/:meetingId/agenda` - Get the full agenda
+- `PATCH /agenda/sections/:sectionId` - Update a section
+- `DELETE /agenda/sections/:sectionId` - Delete a section
+- `POST /agenda/sections/:sectionId/items` - Create an item
+- `PATCH /agenda/items/:itemId` - Update an item
+- `DELETE /agenda/items/:itemId` - Delete an item
 
-# watch mode
-$ npm run start:dev
+### Minutes Module
+- `POST /meetings/:meetingId/minutes` - Create minutes
+- `GET /meetings/:meetingId/minutes` - Get minutes
+- `PATCH /minutes/:minutesId` - Update minutes
+- `DELETE /minutes/:minutesId` - Delete minutes
+- `POST /minutes/:minutesId/action-items` - Create an action item
+- `PATCH /action-items/:actionItemId` - Update an action item
+- `DELETE /action-items/:actionItemId` - Delete an action item
 
-# production mode
-$ npm run start:prod
-```
+### Documents Module (`/documents`)
+- `POST /` - Create document metadata
+- `GET /` - List documents
+- `GET /:id` - Get document by ID
+- `PATCH /:id` - Update document metadata
+- `DELETE /:id` - Delete document metadata
 
-## Run tests
+### Notifications Module (`/notifications`)
+- `PATCH /read-all` - Mark all user notifications as read
+- `GET /` - List user notifications
+- `GET /:id` - Get a notification by ID
+- `PATCH /:id/read` - Mark a single notification as read
 
-```bash
-# unit tests
-$ npm run test
+### Board Pack Module (`/meetings/:meetingId/board-pack`)
+- `GET /` - Get full board pack JSON data
+- `GET /pdf` - Download generated board pack PDF
 
-# e2e tests
-$ npm run test:e2e
+## 5. Security Architecture
+- **JWT Auth Flow**: Protected endpoints use `@UseGuards(JwtAuthGuard)`. Identity is bound to the `@CurrentUser()` decorator.
+- **Tenant Isolation Pattern**: Deeply enforced at the service layer via `OrganisationsService.requireMembership(organisationId, userId)`. The backend *never* trusts client-provided target organisation IDs and resolves them internally from existing DB records.
+- **Role-Based Authorization**: Within an organisation, members have explicit roles (e.g., BOARD_ADMIN, CHAIR, SECRETARY). Only specific roles are allowed to edit meetings, agendas, or invite members.
 
-# test coverage
-$ npm run test:cov
-```
+## 6. Error Handling Conventions
+- **Try/Catch Blocks**: Used extensively around external IO/Prisma calls.
+- **NestJS Logger**: Used to log tracebacks securely on the server.
+- **Safe 500s**: Standard NestJS HTTP Exceptions (`InternalServerErrorException`, `NotFoundException`, `ForbiddenException`, `ConflictException`) are thrown. No raw Prisma errors or database schemas are ever leaked to the client.
 
-## Deployment
+## 7. CI Workflow
+A GitHub Actions workflow (`.github/workflows/backend-ci.yml`) runs on `push` and `pull_request` to `main` checking the `backend/` path.
+It ensures code quality by running:
+1. `npm ci`
+2. `npx prisma format --check`
+3. `npx prisma validate`
+4. `npx prisma generate`
+5. `npm run build`
+6. `npm test`
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## 8. Local Setup
+1. `npm install`
+2. Set up your `.env` using `.env.example` (requires a valid `DATABASE_URL` and `JWT_SECRET`).
+3. Apply migrations to your local Postgres instance: `npx prisma migrate dev`
+4. Start the development server: `npm run start:dev`
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## 9. Remaining / Future Work
+- **Notifications Creation Hookup**: The Notification read/update API exists, but system event triggers (e.g. creating notifications when a meeting is created or agenda published) are NOT wired up yet.
+- **File Uploads Implementation**: The Documents module only stores metadata. Actual binary file uploading (to S3, Azure, or local disk) remains unimplemented.
+- **PostgreSQL Runtime Validation**: A full runtime smoke test against a live PostgreSQL instance hasn't been rigorously conducted (mock databases were heavily used in development).
+- **API Documentation**: Swagger/OpenAPI setup is missing.
+- **Production Configuration**: Need a proper `Dockerfile`, production build steps, and environment config.
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## 10. Development Rules & Conventions
+- **Backend Only**: Do not introduce UI files or mix React into the NestJS codebase.
+- **Tenant Isolation**: Mandatory on all new endpoints. Always verify org membership via `requireMembership` before performing a mutation.
+- **Reuse Prisma Models**: Use existing models defined in `schema.prisma`. Do not duplicate fields or create redundant schemas to sidestep existing relations.
