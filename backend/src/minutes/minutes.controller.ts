@@ -1,6 +1,8 @@
 import {
+  BadRequestException,
   Body,
   Controller,
+  Query,
   Delete,
   Get,
   HttpCode,
@@ -93,6 +95,25 @@ export class MinutesController {
   // ─────────────────────────────────────────────
 
   /**
+   * GET /minutes/actions
+   * Fetch all action items globally for an organisation.
+   */
+  @Get('minutes/actions')
+  getGlobalActionItems(
+    @Query('organisationId') organisationId: string,
+    @Query('skip') skip: string,
+    @Query('take') take: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!organisationId) {
+      throw new BadRequestException('organisationId query parameter is required');
+    }
+    const skipNum = skip ? parseInt(skip, 10) : undefined;
+    const takeNum = take ? parseInt(take, 10) : undefined;
+    return this.minutesService.getGlobalActionItems(organisationId, user, skipNum, takeNum);
+  }
+
+  /**
    * POST /minutes/:minutesId/action-items
    */
   @Post('minutes/:minutesId/action-items')
@@ -127,5 +148,17 @@ export class MinutesController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.minutesService.deleteActionItem(actionItemId, user);
+  }
+
+  /**
+   * POST /minutes/:minutesId/sign
+   */
+  @Post('minutes/:minutesId/sign')
+  @HttpCode(HttpStatus.CREATED)
+  signMinutes(
+    @Param('minutesId') minutesId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.minutesService.signMinutes(minutesId, user);
   }
 }

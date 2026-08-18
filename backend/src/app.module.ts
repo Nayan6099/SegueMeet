@@ -12,6 +12,12 @@ import { AgendaModule } from './agenda/agenda.module';
 import { MinutesModule } from './minutes/minutes.module';
 import { DocumentsModule } from './documents/documents.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { SearchModule } from './search/search.module';
+import { DecisionsModule } from './decisions/decisions.module';
+import { ResolutionsModule } from './resolutions/resolutions.module';
+import { CommitteesModule } from './committees/committees.module';
+import { AnnualPlanModule } from './annual-plan/annual-plan.module';
+import { InterestsModule } from './interests/interests.module';
 
 @Module({
   imports: [
@@ -57,10 +63,26 @@ import { NotificationsModule } from './notifications/notifications.module';
 
     /** Notifications — User notification read/manage API */
     NotificationsModule,
+
+    /** Search — Global search across meetings, documents, and people */
+    SearchModule,
+
+    /** Decisions — Central register of board decisions */
+    DecisionsModule,
+
+    /** Resolutions — Circular resolutions out-of-session */
+    ResolutionsModule,
+
+    /** Committees — Management of board committees */
+    CommitteesModule,
+
+    /** Annual Plan — Board's yearly agenda/work plan */
+    AnnualPlanModule,
+
+    /** Interests — Conflicts of interest register */
+    InterestsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
-
-

@@ -14,8 +14,10 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { OrganisationsService } from './organisations.service';
+import { CreateOrganisationDto } from './dto/create-organisation.dto';
 import { UpdateOrganisationDto } from './dto/update-organisation.dto';
 import { AddMemberDto } from './dto/add-member.dto';
+import { CreateLocationDto } from './dto/create-location.dto';
 
 /**
  * All routes in this controller require a valid JWT Bearer token.
@@ -36,11 +38,22 @@ export class OrganisationsController {
    * Returns organisation details. Caller must be a member.
    */
   @Get(':id')
-  findById(
-    @Param('id') id: string,
+  findById(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.organisationsService.findById(id, user);
+  }
+
+  /**
+   * POST /organisations
+   *
+   * Creates a new organisation and assigns the caller as BOARD_ADMIN.
+   */
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  create(
+    @Body() dto: CreateOrganisationDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.organisationsService.findById(id, user);
+    return this.organisationsService.create(dto, user);
   }
 
   /**
@@ -67,10 +80,7 @@ export class OrganisationsController {
    * Lists all members with their roles. Caller must be a member.
    */
   @Get(':id/members')
-  listMembers(
-    @Param('id') id: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  listMembers(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.organisationsService.listMembers(id, user);
   }
 
@@ -105,5 +115,33 @@ export class OrganisationsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.organisationsService.removeMember(id, userId, user);
+  }
+
+  // ─────────────────────────────────────────────
+  // AUDIT LOGS
+  // ─────────────────────────────────────────────
+
+  @Get(':id/audit-logs')
+  getAuditLogs(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.organisationsService.getAuditLogs(id, user);
+  }
+
+  // ─────────────────────────────────────────────
+  // LOCATIONS
+  // ─────────────────────────────────────────────
+
+  @Get(':id/locations')
+  getLocations(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.organisationsService.getLocations(id, user);
+  }
+
+  @Post(':id/locations')
+  @HttpCode(HttpStatus.CREATED)
+  createLocation(
+    @Param('id') id: string,
+    @Body() dto: CreateLocationDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.organisationsService.createLocation(id, dto, user);
   }
 }

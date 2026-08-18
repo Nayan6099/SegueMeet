@@ -26,9 +26,7 @@ import type { AuthenticatedUser } from '../auth/auth.types';
 @UseGuards(JwtAuthGuard)
 @Controller('notifications')
 export class NotificationsController {
-  constructor(
-    private readonly notificationsService: NotificationsService,
-  ) {}
+  constructor(private readonly notificationsService: NotificationsService) {}
 
   /**
    * PATCH /notifications/read-all
@@ -65,10 +63,7 @@ export class NotificationsController {
    * GET /notifications/:id
    */
   @Get(':id')
-  findOne(
-    @Param('id') id: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.notificationsService.getNotificationById(id, user);
   }
 
@@ -79,10 +74,7 @@ export class NotificationsController {
    */
   @Patch(':id/read')
   @HttpCode(HttpStatus.OK)
-  markAsRead(
-    @Param('id') id: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  markAsRead(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.notificationsService.markAsRead(id, user);
   }
 }

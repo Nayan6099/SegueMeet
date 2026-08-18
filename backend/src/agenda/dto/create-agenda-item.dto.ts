@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsInt, Min } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsInt,
+  Min,
+} from 'class-validator';
 import { AgendaItemPurpose } from '@prisma/client';
 
 export class CreateAgendaItemDto {

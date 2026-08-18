@@ -10,7 +10,11 @@ import {
   Post,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { DocumentsService } from './documents.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
@@ -43,6 +47,59 @@ export class DocumentsController {
   }
 
   /**
+   * POST /documents/upload
+   * Uploads a file to Cloudinary and creates a document metadata record.
+   */
+  @Post('upload')
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(FileInterceptor('file'))
+  upload(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('organisationId') organisationId: string,
+    @Body('meetingId') meetingId: string | undefined,
+    @Body('agendaItemId') agendaItemId: string | undefined,
+    @Body('folderId') folderId: string | undefined,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!file) throw new BadRequestException('No file provided');
+    if (!organisationId) throw new BadRequestException('organisationId is required');
+
+    return this.documentsService.uploadAndCreateDocument(
+      file,
+      organisationId,
+      meetingId,
+      agendaItemId,
+      folderId,
+      user,
+    );
+  }
+
+  // ─────────────────────────────────────────────
+  // FOLDERS
+  // ─────────────────────────────────────────────
+
+  @Get('folders')
+  getFolders(
+    @Query('organisationId') organisationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!organisationId) throw new BadRequestException('organisationId is required');
+    return this.documentsService.getFolders(organisationId, user);
+  }
+
+  @Post('folders')
+  @HttpCode(HttpStatus.CREATED)
+  createFolder(
+    @Body('organisationId') organisationId: string,
+    @Body('name') name: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!organisationId) throw new BadRequestException('organisationId is required');
+    if (!name) throw new BadRequestException('name is required');
+    return this.documentsService.createFolder(organisationId, name, user);
+  }
+
+  /**
    * GET /documents?organisationId=...&meetingId=...&agendaItemId=...
    * Lists documents within the requested organisation scope.
    */
@@ -59,10 +116,7 @@ export class DocumentsController {
    * Returns a single document. Organisation is resolved from the DB record.
    */
   @Get(':id')
-  findOne(
-    @Param('id') id: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.documentsService.getDocumentById(id, user);
   }
 
@@ -85,10 +139,7 @@ export class DocumentsController {
    */
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  remove(
-    @Param('id') id: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.documentsService.deleteDocument(id, user);
   }
 }

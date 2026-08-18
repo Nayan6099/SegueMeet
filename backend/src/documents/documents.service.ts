@@ -13,6 +13,8 @@ import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
 import { QueryDocumentsDto } from './dto/query-documents.dto';
 import { AuditService } from '../audit/audit.service';
+import { v2 as cloudinary } from 'cloudinary';
+import * as streamifier from 'streamifier';
 
 /** Roles allowed to create, update, or delete documents. */
 const EDIT_ROLES: OrganisationRole[] = [
@@ -29,7 +31,13 @@ export class DocumentsService {
     private readonly prisma: PrismaService,
     private readonly organisationsService: OrganisationsService,
     private readonly auditService: AuditService,
-  ) {}
+  ) {
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+  }
 
   // ─────────────────────────────────────────────
   // PRIVATE HELPERS
@@ -140,6 +148,7 @@ export class DocumentsService {
           storagePath: dto.storagePath,
           meetingId: dto.meetingId ?? null,
           agendaItemId: dto.agendaItemId ?? null,
+          folderId: dto.folderId ?? null,
           uploadedById: user.id,
         },
       });
@@ -163,9 +172,93 @@ export class DocumentsService {
     }
   }
 
+  /**
+   * Uploads a file to Cloudinary and creates a Document record.
+   */
+  async uploadAndCreateDocument(
+    file: Express.Multer.File,
+    organisationId: string,
+    meetingId: string | undefined,
+    agendaItemId: string | undefined,
+    folderId: string | undefined,
+    user: AuthenticatedUser,
+  ) {
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'seguemeet_documents',
+          resource_type: 'auto',
+          // Cloudinary will automatically handle PDF, Word, Images, etc.
+        },
+        async (error, result) => {
+          if (error) {
+            this.logger.error('Cloudinary upload failed', error);
+            return reject(new InternalServerErrorException('Failed to upload file to cloud'));
+          }
+
+          if (!result) {
+            return reject(new InternalServerErrorException('No result from Cloudinary'));
+          }
+
+          try {
+            // Create the Document record using the secure URL
+            const doc = await this.createDocument(
+              {
+                organisationId,
+                fileName: file.originalname,
+                originalName: file.originalname,
+                mimeType: file.mimetype,
+                sizeBytes: file.size,
+                storagePath: result.secure_url,
+                meetingId,
+                agendaItemId,
+                folderId,
+              },
+              user,
+            );
+            resolve(doc);
+          } catch (dbError) {
+            reject(dbError);
+          }
+        },
+      );
+
+      streamifier.createReadStream(file.buffer).pipe(uploadStream);
+    });
+  }
+
   // ─────────────────────────────────────────────
   // LIST
   // ─────────────────────────────────────────────
+
+  async getFolders(organisationId: string, user: AuthenticatedUser) {
+    await this.organisationsService.requireMembership(organisationId, user.id);
+    return this.prisma.documentFolder.findMany({
+      where: { organisationId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async createFolder(organisationId: string, name: string, user: AuthenticatedUser) {
+    const membership = await this.organisationsService.requireMembership(organisationId, user.id);
+    if (!EDIT_ROLES.includes(membership.role)) {
+      throw new ForbiddenException('You do not have permission to create folders');
+    }
+    const folder = await this.prisma.documentFolder.create({
+      data: { organisationId, name },
+    });
+
+    this.auditService.log({
+      organisationId,
+      actorId: user.id,
+      action: 'document_folder.created',
+      entityType: 'DocumentFolder',
+      entityId: folder.id,
+      payload: { name },
+    });
+
+    return folder;
+  }
 
   /**
    * GET /documents
@@ -267,10 +360,14 @@ export class DocumentsService {
         where: { id },
         data: {
           ...(dto.fileName !== undefined && { fileName: dto.fileName }),
-          ...(dto.originalName !== undefined && { originalName: dto.originalName }),
+          ...(dto.originalName !== undefined && {
+            originalName: dto.originalName,
+          }),
           ...(dto.mimeType !== undefined && { mimeType: dto.mimeType }),
           ...(dto.sizeBytes !== undefined && { sizeBytes: dto.sizeBytes }),
-          ...(dto.storagePath !== undefined && { storagePath: dto.storagePath }),
+          ...(dto.storagePath !== undefined && {
+            storagePath: dto.storagePath,
+          }),
           // meetingId and agendaItemId may be explicitly nulled to unlink
           ...(dto.meetingId !== undefined && { meetingId: dto.meetingId }),
           ...(dto.agendaItemId !== undefined && {

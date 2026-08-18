@@ -3,7 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../../common/database/prisma.service';
-import { type JwtPayload, type AuthenticatedUser, SAFE_USER_SELECT } from '../auth.types';
+import {
+  type JwtPayload,
+  type AuthenticatedUser,
+  SAFE_USER_SELECT,
+} from '../auth.types';
 
 /**
  * JwtStrategy — validates Bearer tokens on every protected route.

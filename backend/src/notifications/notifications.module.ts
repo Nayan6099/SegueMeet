@@ -17,5 +17,6 @@ import { OrganisationsModule } from '../organisations/organisations.module';
   imports: [OrganisationsModule],
   controllers: [NotificationsController],
   providers: [NotificationsService],
+  exports: [NotificationsService],
 })
 export class NotificationsModule {}

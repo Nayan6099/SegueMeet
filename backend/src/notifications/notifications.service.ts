@@ -8,6 +8,7 @@ import {
 import { PrismaService } from '../common/database/prisma.service';
 import { OrganisationsService } from '../organisations/organisations.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
+import { NotificationType } from '@prisma/client';
 import { QueryNotificationsDto } from './dto/query-notifications.dto';
 
 @Injectable()
@@ -27,10 +28,7 @@ export class NotificationsService {
    * Finds a notification by ID and verifies that it belongs to the
    * requesting user. Throws 404 if not found, 403 if owned by another user.
    */
-  private async resolveOwnNotification(
-    notificationId: string,
-    userId: string,
-  ) {
+  private async resolveOwnNotification(notificationId: string, userId: string) {
     const notification = await this.prisma.notification.findUnique({
       where: { id: notificationId },
     });
@@ -46,6 +44,36 @@ export class NotificationsService {
     }
 
     return notification;
+  }
+
+  // ─────────────────────────────────────────────
+  // CREATE
+  // ─────────────────────────────────────────────
+
+  /**
+   * Internal helper to create a notification. Not exposed via API.
+   * Called by other services (e.g., MeetingsService, MinutesService) when events occur.
+   */
+  async createNotification(data: {
+    organisationId: string;
+    recipientId: string;
+    type: NotificationType;
+    title: string;
+    message: string;
+    entityType?: string;
+    entityId?: string;
+  }) {
+    try {
+      return await this.prisma.notification.create({
+        data,
+      });
+    } catch (error) {
+      // Don't throw so we don't break the main workflow if notifications fail
+      this.logger.error(
+        `Failed to create notification for user ${data.recipientId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
   }
 
   // ─────────────────────────────────────────────
@@ -91,9 +119,7 @@ export class NotificationsService {
         `Failed to fetch notifications for user ${user.id}`,
         error instanceof Error ? error.stack : String(error),
       );
-      throw new InternalServerErrorException(
-        'Failed to fetch notifications',
-      );
+      throw new InternalServerErrorException('Failed to fetch notifications');
     }
   }
 

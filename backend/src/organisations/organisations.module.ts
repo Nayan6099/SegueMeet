@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { OrganisationsController } from './organisations.controller';
 import { OrganisationsService } from './organisations.service';
 import { AuditModule } from '../audit/audit.module';
@@ -15,7 +15,7 @@ import { AuditModule } from '../audit/audit.module';
  * replicate before accessing any org-scoped resource.
  */
 @Module({
-  imports: [AuditModule],
+  imports: [forwardRef(() => AuditModule)],
   controllers: [OrganisationsController],
   providers: [OrganisationsService],
   exports: [OrganisationsService],

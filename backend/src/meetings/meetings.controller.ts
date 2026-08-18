@@ -42,10 +42,7 @@ export class MeetingsController {
   }
 
   @Get(':id')
-  findOne(
-    @Param('id') id: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.meetingsService.getMeetingById(id, user);
   }
 
@@ -60,10 +57,7 @@ export class MeetingsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
-  remove(
-    @Param('id') id: string,
-    @CurrentUser() user: AuthenticatedUser,
-  ) {
+  remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.meetingsService.deleteMeeting(id, user);
   }
 }

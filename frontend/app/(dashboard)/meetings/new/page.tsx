@@ -5,22 +5,47 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { api } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 export default function NewMeetingPage() {
   const router = useRouter();
   const [isRemote, setIsRemote] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSubmitting(true);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const orgId = user?.memberships?.[0]?.organisationId || user?.memberships?.[0]?.organisation?.id;
 
-    // NOTE: no backend yet — this is where a real API call
-    // (POST /meetings) will go once apps/api exists.
-    // For now we just simulate success and go back to the list.
-    setTimeout(() => {
+  const mutation = useMutation({
+    mutationFn: async (formData: FormData) => {
+      const payload = {
+        organisationId: orgId,
+        title: formData.get("title"),
+        date: formData.get("date"),
+        startTime: formData.get("startTime"),
+        endTime: formData.get("endTime"),
+        location: formData.get("location"),
+        administrator: formData.get("administrator"),
+        notes: formData.get("notes"),
+        isRemote,
+      };
+
+      return api.post("/meetings", payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["meetings"] });
       router.push("/meetings");
-    }, 300);
+    },
+    onSettled: () => setSubmitting(false),
+  });
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!orgId) return alert("No organisation selected.");
+    setSubmitting(true);
+    mutation.mutate(new FormData(e.currentTarget));
   }
 
   return (

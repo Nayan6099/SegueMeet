@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -30,9 +31,23 @@ async function bootstrap() {
     }),
   );
 
+  /**
+   * Swagger OpenAPI setup
+   */
+  const config = new DocumentBuilder()
+    .setTitle('SegueMeet API')
+    .setDescription('API documentation for the SegueMeet Board Management Platform')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
+
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
   await app.listen(port);
-  Logger.log(`SegueMeet API listening on http://localhost:${port}`, 'Bootstrap');
+  Logger.log(
+    `SegueMeet API listening on http://localhost:${port}`,
+    'Bootstrap',
+  );
 }
 bootstrap();
-

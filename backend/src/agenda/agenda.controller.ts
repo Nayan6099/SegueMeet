@@ -95,4 +95,15 @@ export class AgendaController {
   ) {
     return this.agendaService.deleteItem(itemId, user);
   }
+
+  @Post('meetings/:meetingId/agenda/items/:itemId/access')
+  @HttpCode(HttpStatus.OK)
+  grantItemAccess(
+    @Param('meetingId') meetingId: string,
+    @Param('itemId') itemId: string,
+    @Body('memberIds') memberIds: string[],
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.agendaService.grantItemAccess(meetingId, itemId, memberIds || [], user);
+  }
 }

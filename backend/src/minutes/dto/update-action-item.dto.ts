@@ -1,10 +1,4 @@
-import {
-  IsEnum,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Matches,
-} from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUUID, Matches } from 'class-validator';
 import { ActionItemStatus } from '@prisma/client';
 
 export class UpdateActionItemDto {
@@ -26,7 +20,9 @@ export class UpdateActionItemDto {
    */
   @IsOptional()
   @IsString()
-  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'dueDate must be in YYYY-MM-DD format' })
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'dueDate must be in YYYY-MM-DD format',
+  })
   dueDate?: string;
 
   @IsOptional()

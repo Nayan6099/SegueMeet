@@ -1,5 +1,7 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import LandingPage from "../src/app/landing/page";
 
 export default function RootPage() {
-  redirect("/my-home");
+  return <LandingPage />;
 }

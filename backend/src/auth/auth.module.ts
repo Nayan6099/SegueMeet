@@ -20,7 +20,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
         secret: configService.getOrThrow<string>('JWT_SECRET'),
         signOptions: {
           // Cast required: @nestjs/jwt uses ms.StringValue, not bare string.
-          expiresIn: (configService.get<string>('JWT_EXPIRES_IN', '7d')) as any,
+          expiresIn: configService.get<string>('JWT_EXPIRES_IN', '7d') as any,
         },
       }),
     }),

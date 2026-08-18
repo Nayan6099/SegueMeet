@@ -10,7 +10,12 @@ import { OrganisationRole } from '@prisma/client';
 import { PrismaService } from '../common/database/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { type JwtPayload, type AuthenticatedUser, SAFE_USER_SELECT } from './auth.types';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import {
+  type JwtPayload,
+  type AuthenticatedUser,
+  SAFE_USER_SELECT,
+} from './auth.types';
 
 /** bcrypt cost factor — 12 rounds is the recommended production minimum. */
 const BCRYPT_ROUNDS = 12;
@@ -58,7 +63,13 @@ export class AuthService {
         });
 
         const org = await tx.organisation.create({
-          data: { name: dto.organisationName.trim() },
+          data: { 
+            name: dto.organisationName.trim(),
+            settings: {
+              physicalAddress: dto.physicalAddress,
+              country: dto.country,
+            }
+          },
           select: { id: true, name: true },
         });
 
@@ -105,7 +116,10 @@ export class AuthService {
     // user and wrong password to prevent email enumeration.
     if (!user || !user.passwordHash) {
       // Run a dummy bcrypt to maintain constant-time behaviour
-      await bcrypt.compare(dto.password, '$2b$12$invalidhashpadding000000000000000');
+      await bcrypt.compare(
+        dto.password,
+        '$2b$12$invalidhashpadding000000000000000',
+      );
       throw new UnauthorizedException('Invalid email or password');
     }
 
@@ -157,6 +171,7 @@ export class AuthService {
             id: true,
             role: true,
             joinedAt: true,
+            organisationId: true,
             organisation: {
               select: {
                 id: true,
@@ -173,6 +188,20 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+      }
+    });
   }
 
   // ─────────────────────────────────────────────

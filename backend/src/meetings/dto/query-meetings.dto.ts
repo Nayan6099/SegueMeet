@@ -1,4 +1,11 @@
-import { IsUUID, IsNotEmpty, IsOptional, IsEnum, IsString } from 'class-validator';
+import {
+  IsUUID,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsString,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 import { MeetingStatus } from '@prisma/client';
 
 export class QueryMeetingsDto {
@@ -22,4 +29,12 @@ export class QueryMeetingsDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  skip?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  take?: number;
 }

@@ -4,6 +4,7 @@ import {
   MinLength,
   MaxLength,
   IsNotEmpty,
+  IsOptional,
 } from 'class-validator';
 
 export class RegisterDto {
@@ -33,4 +34,12 @@ export class RegisterDto {
   @MinLength(2, { message: 'Organisation name must be at least 2 characters' })
   @MaxLength(200, { message: 'Organisation name cannot exceed 200 characters' })
   organisationName: string;
+
+  @IsString()
+  @IsOptional()
+  physicalAddress?: string;
+
+  @IsString()
+  @IsOptional()
+  country?: string;
 }

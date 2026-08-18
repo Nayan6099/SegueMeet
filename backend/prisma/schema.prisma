@@ -5,8 +5,9 @@ generator client {
 
 // Datasource
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ─────────────────────────────────────────────
@@ -65,6 +66,20 @@ enum NotificationType {
   DOCUMENT_UPLOADED
 }
 
+enum ResolutionStatus {
+  DRAFT
+  OPEN
+  PASSED
+  FAILED
+  CANCELLED
+}
+
+enum VoteStatus {
+  IN_FAVOUR
+  AGAINST
+  ABSTAIN
+}
+
 // ─────────────────────────────────────────────
 // MODELS
 // ─────────────────────────────────────────────
@@ -78,10 +93,14 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  memberships         OrganisationMember[]
-  assignedActionItems MinutesActionItem[]  @relation("ActionAssignee")
-  auditLogs           AuditLog[]
-  notifications       Notification[]
+  memberships          OrganisationMember[]
+  assignedActionItems  MinutesActionItem[]  @relation("ActionAssignee")
+  auditLogs            AuditLog[]
+  notifications        Notification[]
+  votes                Vote[]
+  committeeMemberships CommitteeMember[]
+  interests            Interest[]
+  minutesSignatures    MinutesSignature[]
 
   @@map("users")
 }
@@ -99,8 +118,44 @@ model Organisation {
   documents     Document[]
   auditLogs     AuditLog[]
   notifications Notification[]
+  decisions     Decision[]
+  resolutions   Resolution[]
+  committees    Committee[]
+  annualPlans   AnnualPlan[]
+  interests     Interest[]
+  locations     MeetingLocation[]
+  folders       DocumentFolder[]
 
   @@map("organisations")
+}
+
+model MeetingLocation {
+  id             String   @id @default(uuid())
+  organisationId String
+  name           String
+  address        String
+  timeZone       String
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@index([organisationId])
+  @@map("meeting_locations")
+}
+
+model DocumentFolder {
+  id             String   @id @default(uuid())
+  organisationId String
+  name           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  documents    Document[]
+
+  @@index([organisationId])
+  @@map("document_folders")
 }
 
 model OrganisationMember {
@@ -109,9 +164,12 @@ model OrganisationMember {
   userId         String
   role           OrganisationRole @default(BOARD_MEMBER)
   joinedAt       DateTime         @default(now())
+  tenureEndDate  String? /// ISO date "YYYY-MM-DD"
 
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  agendaItemAccess AgendaItemAccess[]
 
   /// A user may only have one membership record per organisation.
   @@unique([organisationId, userId])
@@ -140,6 +198,7 @@ model Meeting {
   agendaSections AgendaSection[]
   minutes        Minutes?
   documents      Document[]
+  decisions      Decision[]
 
   @@index([organisationId])
   @@index([date])
@@ -174,11 +233,25 @@ model AgendaItem {
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
 
-  section   AgendaSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  documents Document[]
+  section     AgendaSection      @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  documents   Document[]
+  guestAccess AgendaItemAccess[]
 
   @@index([sectionId])
   @@map("agenda_items")
+}
+
+model AgendaItemAccess {
+  id           String @id @default(uuid())
+  agendaItemId String
+  memberId     String
+
+  agendaItem AgendaItem         @relation(fields: [agendaItemId], references: [id], onDelete: Cascade)
+  member     OrganisationMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([agendaItemId, memberId])
+  @@index([agendaItemId])
+  @@map("agenda_item_access")
 }
 
 model Minutes {
@@ -191,8 +264,23 @@ model Minutes {
 
   meeting     Meeting             @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   actionItems MinutesActionItem[]
+  signatures  MinutesSignature[]
 
   @@map("minutes")
+}
+
+model MinutesSignature {
+  id            String   @id @default(uuid())
+  minutesId     String
+  signerId      String
+  signedAt      DateTime @default(now())
+  signatureHash String
+
+  minutes Minutes @relation(fields: [minutesId], references: [id], onDelete: Cascade)
+  signer  User    @relation(fields: [signerId], references: [id], onDelete: Cascade)
+
+  @@unique([minutesId, signerId])
+  @@map("minutes_signatures")
 }
 
 model MinutesActionItem {
@@ -218,6 +306,7 @@ model Document {
   organisationId String
   meetingId      String?
   agendaItemId   String?
+  folderId       String?
   fileName       String
   /// Original filename supplied by the uploader
   originalName   String
@@ -229,13 +318,15 @@ model Document {
   uploadedById   String?
   createdAt      DateTime @default(now())
 
-  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
-  meeting      Meeting?     @relation(fields: [meetingId], references: [id], onDelete: SetNull)
-  agendaItem   AgendaItem?  @relation(fields: [agendaItemId], references: [id], onDelete: SetNull)
+  organisation Organisation    @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  meeting      Meeting?        @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  agendaItem   AgendaItem?     @relation(fields: [agendaItemId], references: [id], onDelete: SetNull)
+  folder       DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
   @@index([organisationId])
   @@index([meetingId])
   @@index([agendaItemId])
+  @@index([folderId])
   @@map("documents")
 }
 
@@ -281,4 +372,140 @@ model Notification {
   @@index([isRead])
   @@index([createdAt])
   @@map("notifications")
+}
+
+model Decision {
+  id             String   @id @default(uuid())
+  organisationId String
+  meetingId      String?
+  title          String
+  description    String?
+  date           String /// ISO date "YYYY-MM-DD"
+  status         String   @default("APPROVED") /// "PROPOSED", "APPROVED", "REJECTED", "DEFERRED"
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  meeting      Meeting?     @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId])
+  @@index([meetingId])
+  @@map("decisions")
+}
+
+model Resolution {
+  id             String           @id @default(uuid())
+  organisationId String
+  title          String
+  description    String
+  status         ResolutionStatus @default(DRAFT)
+  closeDate      String /// ISO date "YYYY-MM-DD"
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  votes        Vote[]
+
+  @@index([organisationId])
+  @@map("resolutions")
+}
+
+model Vote {
+  id           String     @id @default(uuid())
+  resolutionId String
+  voterId      String
+  status       VoteStatus
+  comment      String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  resolution Resolution @relation(fields: [resolutionId], references: [id], onDelete: Cascade)
+  voter      User       @relation(fields: [voterId], references: [id], onDelete: Cascade)
+
+  @@unique([resolutionId, voterId])
+  @@index([resolutionId])
+  @@index([voterId])
+  @@map("votes")
+}
+
+model Committee {
+  id             String   @id @default(uuid())
+  organisationId String
+  name           String
+  description    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation      @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  members      CommitteeMember[]
+
+  @@index([organisationId])
+  @@map("committees")
+}
+
+model CommitteeMember {
+  id          String   @id @default(uuid())
+  committeeId String
+  userId      String
+  role        String   @default("MEMBER") /// e.g., "CHAIR", "MEMBER"
+  createdAt   DateTime @default(now())
+
+  committee Committee @relation(fields: [committeeId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([committeeId, userId])
+  @@index([committeeId])
+  @@index([userId])
+  @@map("committee_members")
+}
+
+model AnnualPlan {
+  id             String   @id @default(uuid())
+  organisationId String
+  year           Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  items        PlanItem[]
+
+  @@unique([organisationId, year])
+  @@index([organisationId])
+  @@map("annual_plans")
+}
+
+model PlanItem {
+  id           String   @id @default(uuid())
+  annualPlanId String
+  title        String
+  description  String?
+  month        Int /// 1-12
+  status       String   @default("TODO") /// "TODO", "IN_PROGRESS", "DONE"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  annualPlan AnnualPlan @relation(fields: [annualPlanId], references: [id], onDelete: Cascade)
+
+  @@index([annualPlanId])
+  @@map("annual_plan_items")
+}
+
+model Interest {
+  id               String   @id @default(uuid())
+  organisationId   String
+  userId           String? /// Optional for external guests
+  guestName        String? /// Name of the external person if userId is null
+  title            String
+  description      String?
+  notificationDate String? /// ISO date "YYYY-MM-DD"
+  isResolved       Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organisationId])
+  @@index([userId])
+  @@map("interests")
 }

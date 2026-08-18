@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { mockMeetings } from "@/lib/mock-meetings";
-import { mockAgendas } from "@/lib/mock-agenda";
+import { api } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
 
 const purposeLabels: Record<string, string> = {
   none: "—",
@@ -15,15 +17,55 @@ const purposeLabels: Record<string, string> = {
 export default function BoardPackPage() {
   const params = useParams<{ meetingId: string }>();
   const router = useRouter();
+  const meetingId = params.meetingId;
 
-  const meeting = mockMeetings.find((m) => m.id === params.meetingId);
-  const sections = mockAgendas[params.meetingId] ?? [];
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["board-pack", meetingId],
+    queryFn: async () => {
+      const res = await api.get(`/meetings/${meetingId}/board-pack`);
+      return res.data;
+    },
+  });
 
-  if (!meeting) {
-    return <p className="text-muted-foreground">Meeting not found.</p>;
+  const [downloading, setDownloading] = useState(false);
+
+  async function downloadPdf() {
+    setDownloading(true);
+    try {
+      const res = await api.get(`/meetings/${meetingId}/board-pack/pdf`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `${data?.meeting?.title || "Board Pack"}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error("Failed to download PDF", err);
+      alert("Failed to download PDF. Please try again.");
+    } finally {
+      setDownloading(false);
+    }
   }
 
-  if (meeting.agendaStatus !== "published") {
+  if (isLoading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return <p className="text-muted-foreground">Failed to load board pack.</p>;
+  }
+
+  const meeting = data.meeting;
+  const sections = data.agenda || [];
+
+  if (meeting.agendaStatus !== "PUBLISHED") {
     return (
       <div className="mx-auto max-w-2xl">
         <h1 className="text-2xl font-semibold tracking-tight">Board Pack</h1>
@@ -42,9 +84,9 @@ export default function BoardPackPage() {
     );
   }
 
-  const totalItems = sections.reduce((sum, s) => sum + s.items.length, 0);
+  const totalItems = sections.reduce((sum: number, s: any) => sum + s.items.length, 0);
   const totalMinutes = sections.reduce(
-    (sum, s) => sum + s.items.reduce((a, i) => a + i.durationMinutes, 0),
+    (sum: number, s: any) => sum + s.items.reduce((a: number, i: any) => a + i.durationMinutes, 0),
     0
   );
 
@@ -60,11 +102,11 @@ export default function BoardPackPage() {
           </p>
         </div>
         <button
-          disabled
-          title="PDF export needs the backend — coming once apps/api is wired up"
-          className="rounded-md border border-border px-4 py-2 text-sm font-medium text-muted-foreground opacity-50"
+          onClick={downloadPdf}
+          disabled={downloading}
+          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
-          Download PDF
+          {downloading ? "Generating..." : "Download PDF"}
         </button>
       </div>
 
@@ -77,7 +119,7 @@ export default function BoardPackPage() {
           {meeting.title}
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          {meeting.date} · {meeting.startTime}–{meeting.endTime} ·{" "}
+          {new Date(meeting.date).toLocaleDateString()} · {meeting.startTime}–{meeting.endTime} ·{" "}
           {meeting.location}
         </p>
         <div className="mt-4 flex justify-center gap-6 text-xs text-muted-foreground">
@@ -93,7 +135,7 @@ export default function BoardPackPage() {
           Agenda
         </h3>
         <ol className="mt-3 space-y-1 text-sm">
-          {sections.map((s, idx) => (
+          {sections.map((s: any, idx: number) => (
             <li key={s.id}>
               <span className="text-muted-foreground">{idx + 1}.</span>{" "}
               {s.title}
@@ -104,7 +146,7 @@ export default function BoardPackPage() {
 
       {/* Papers — one block per section, matching the printed pack layout */}
       <div className="mt-6 space-y-6">
-        {sections.map((section, idx) => (
+        {sections.map((section: any, idx: number) => (
           <div
             key={section.id}
             className="rounded-md border border-border bg-card p-6"
@@ -113,7 +155,7 @@ export default function BoardPackPage() {
               {idx + 1}. {section.title}
             </h3>
             <div className="mt-4 space-y-3">
-              {section.items.map((item) => (
+              {section.items.map((item: any) => (
                 <div
                   key={item.id}
                   className="flex items-center justify-between border-b border-border pb-3 last:border-0 last:pb-0"
@@ -126,7 +168,7 @@ export default function BoardPackPage() {
                     </p>
                   </div>
                   <Badge variant="outline">
-                    {purposeLabels[item.purpose]}
+                    {purposeLabels[item.purpose.toLowerCase()] || item.purpose}
                   </Badge>
                 </div>
               ))}

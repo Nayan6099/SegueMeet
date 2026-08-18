@@ -4,12 +4,16 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { Prisma, OrganisationMember, OrganisationRole } from '@prisma/client';
 import { PrismaService } from '../common/database/prisma.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
+import { CreateOrganisationDto } from './dto/create-organisation.dto';
 import { UpdateOrganisationDto } from './dto/update-organisation.dto';
 import { AddMemberDto } from './dto/add-member.dto';
+import { CreateLocationDto } from './dto/create-location.dto';
 import { AuditService } from '../audit/audit.service';
 
 /** Roles that have administrative permissions within an organisation. */
@@ -19,6 +23,7 @@ const ADMIN_ROLES: OrganisationRole[] = [OrganisationRole.BOARD_ADMIN];
 export class OrganisationsService {
   constructor(
     private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => AuditService))
     private readonly auditService: AuditService,
   ) {}
 
@@ -51,6 +56,37 @@ export class OrganisationsService {
     if (!org) {
       throw new NotFoundException('Organisation not found');
     }
+
+    return org;
+  }
+
+  /**
+   * POST /organisations
+   *
+   * Creates an organisation and sets the creator as BOARD_ADMIN.
+   */
+  async create(dto: CreateOrganisationDto, requestingUser: AuthenticatedUser) {
+    const org = await this.prisma.organisation.create({
+      data: {
+        name: dto.name.trim(),
+        members: {
+          create: {
+            userId: requestingUser.id,
+            role: OrganisationRole.BOARD_ADMIN,
+          }
+        }
+      },
+      select: { id: true, name: true, settings: true, createdAt: true, updatedAt: true }
+    });
+
+    this.auditService.log({
+      organisationId: org.id,
+      actorId: requestingUser.id,
+      action: 'organisation.created',
+      entityType: 'Organisation',
+      entityId: org.id,
+      payload: { name: org.name },
+    });
 
     return org;
   }
@@ -343,11 +379,62 @@ export class OrganisationsService {
     const membership = await this.requireMembership(organisationId, userId);
 
     if (!ADMIN_ROLES.includes(membership.role)) {
-      throw new ForbiddenException(
-        'Only Board Admins can perform this action',
-      );
+      throw new ForbiddenException('Only Board Admins can perform this action');
     }
 
     return membership;
+  }
+
+  // ─────────────────────────────────────────────
+  // AUDIT LOGS
+  // ─────────────────────────────────────────────
+
+  async getAuditLogs(organisationId: string, requestingUser: AuthenticatedUser) {
+    await this.requireMembership(organisationId, requestingUser.id);
+    return this.prisma.auditLog.findMany({
+      where: { organisationId },
+      include: {
+        actor: { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50, // Limit to recent 50 for now
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  // LOCATIONS
+  // ─────────────────────────────────────────────
+
+  async getLocations(organisationId: string, requestingUser: AuthenticatedUser) {
+    await this.requireMembership(organisationId, requestingUser.id);
+    return this.prisma.meetingLocation.findMany({
+      where: { organisationId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async createLocation(
+    organisationId: string,
+    dto: CreateLocationDto,
+    requestingUser: AuthenticatedUser,
+  ) {
+    await this.requireMembership(organisationId, requestingUser.id);
+
+    if (dto.isDefault) {
+      await this.prisma.meetingLocation.updateMany({
+        where: { organisationId, isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+    
+    return this.prisma.meetingLocation.create({
+      data: {
+        organisationId,
+        name: dto.name,
+        address: dto.address,
+        timeZone: dto.timeZone,
+        isDefault: dto.isDefault ?? false,
+      },
+    });
   }
 }

@@ -11,8 +11,9 @@ import type { AuthenticatedUser } from '../auth/auth.types';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { UpdateMeetingDto } from './dto/update-meeting.dto';
 import { QueryMeetingsDto } from './dto/query-meetings.dto';
-import { OrganisationRole, Prisma } from '@prisma/client';
+import { OrganisationRole, Prisma, NotificationType } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class MeetingsService {
@@ -35,6 +36,7 @@ export class MeetingsService {
     private readonly prisma: PrismaService,
     private readonly organisationsService: OrganisationsService,
     private readonly auditService: AuditService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -71,6 +73,25 @@ export class MeetingsService {
         entityId: meeting.id,
         payload: { title: dto.title, date: dto.date },
       });
+
+      // Fetch all organisation members to notify them
+      const members = await this.prisma.organisationMember.findMany({
+        where: { organisationId: dto.organisationId },
+      });
+
+      for (const member of members) {
+        if (member.userId !== user.id) { // Optional: don't notify the creator
+          await this.notificationsService.createNotification({
+            organisationId: dto.organisationId,
+            recipientId: member.userId,
+            type: NotificationType.MEETING_CREATED,
+            title: 'New Meeting Scheduled',
+            message: `A new meeting "${meeting.title}" has been scheduled for ${meeting.date}.`,
+            entityType: 'Meeting',
+            entityId: meeting.id,
+          });
+        }
+      }
 
       return meeting;
     } catch (error) {
@@ -111,11 +132,20 @@ export class MeetingsService {
         where.title = { contains: query.search, mode: 'insensitive' };
       }
 
-      const meetings = await this.prisma.meeting.findMany({
-        where,
-        orderBy: { date: 'desc' },
-      });
-      return meetings;
+      const skip = query.skip ? Number(query.skip) : 0;
+      const take = query.take ? Number(query.take) : 50;
+
+      const [data, total] = await Promise.all([
+        this.prisma.meeting.findMany({
+          where,
+          orderBy: { date: 'desc' },
+          skip,
+          take,
+        }),
+        this.prisma.meeting.count({ where }),
+      ]);
+
+      return { data, total, skip, take };
     } catch (error) {
       this.logger.error(
         `Failed to fetch meetings for org ${query.organisationId}`,
@@ -200,6 +230,35 @@ export class MeetingsService {
         entityId: id,
         payload: { title: dto.title, status: dto.status },
       });
+
+      if (dto.agendaStatus === 'PUBLISHED') {
+        this.auditService.log({
+          organisationId: meeting.organisationId,
+          actorId: user.id,
+          action: 'agenda.published',
+          entityType: 'Meeting',
+          entityId: id,
+        });
+
+        // Notify all members
+        const members = await this.prisma.organisationMember.findMany({
+          where: { organisationId: meeting.organisationId },
+        });
+
+        for (const member of members) {
+          if (member.userId !== user.id) {
+            await this.notificationsService.createNotification({
+              organisationId: meeting.organisationId,
+              recipientId: member.userId,
+              type: NotificationType.AGENDA_PUBLISHED,
+              title: 'Agenda Published',
+              message: `The agenda for "${meeting.title}" has been published.`,
+              entityType: 'Meeting',
+              entityId: meeting.id,
+            });
+          }
+        }
+      }
 
       return updated;
     } catch (error) {

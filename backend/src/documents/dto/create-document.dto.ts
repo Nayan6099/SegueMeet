@@ -59,4 +59,8 @@ export class CreateDocumentDto {
   @IsOptional()
   @IsUUID()
   agendaItemId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  folderId?: string;
 }

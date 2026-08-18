@@ -1,11 +1,17 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException, Inject, forwardRef } from '@nestjs/common';
 import { PrismaService } from '../common/database/prisma.service';
+import { OrganisationsService } from '../organisations/organisations.service';
+import type { AuthenticatedUser } from '../auth/auth.types';
 
 @Injectable()
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(forwardRef(() => OrganisationsService))
+    private readonly organisationsService: OrganisationsService,
+  ) {}
 
   /**
    * Logs an audit event asynchronously. Never throws, even on failure.
@@ -34,6 +40,30 @@ export class AuditService {
         `Failed to write audit log for action ${params.action} on ${params.entityType} ${params.entityId}`,
         error instanceof Error ? error.stack : String(error),
       );
+    }
+  }
+
+  /**
+   * GET /audit
+   * Fetch audit logs for an organisation
+   */
+  async getLogs(organisationId: string, user: AuthenticatedUser) {
+    await this.organisationsService.requireMembership(organisationId, user.id);
+
+    try {
+      return await this.prisma.auditLog.findMany({
+        where: { organisationId },
+        include: {
+          actor: { select: { id: true, name: true, email: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch audit logs for organisation ${organisationId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw new InternalServerErrorException('Failed to fetch audit logs');
     }
   }
 }

@@ -8,21 +8,32 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
+import { useAuth } from "@/lib/auth-context";
+import { api } from "@/lib/api";
+
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(null);
 
-    // Fake authentication delay
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const res = await api.post("/auth/login", { email, password });
+      // The backend returns { accessToken, user }
+      login(res.data.accessToken, res.data.user);
       router.push("/my-home");
-    }, 1000);
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Invalid credentials");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -33,6 +44,11 @@ export default function LoginPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {error && (
+          <div className="p-3 bg-red-50 text-red-600 text-sm rounded-md border border-red-200">
+            {error}
+          </div>
+        )}
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input 

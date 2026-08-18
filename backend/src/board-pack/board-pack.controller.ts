@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Get,
-  Header,
-  Param,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Header, Param, UseGuards } from '@nestjs/common';
 import { BoardPackService } from './board-pack.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';

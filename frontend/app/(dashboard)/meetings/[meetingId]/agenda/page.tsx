@@ -11,9 +11,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockAgendas } from "@/lib/mock-agenda";
-import { mockMeetings } from "@/lib/mock-meetings";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { api } from "@/lib/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AgendaSection, AgendaItem } from "@/lib/types";
+import { Loader2, Trash2, UserPlus } from "lucide-react";
 
 const purposeLabels: Record<AgendaItem["purpose"], string> = {
   none: "—",
@@ -24,73 +32,102 @@ const purposeLabels: Record<AgendaItem["purpose"], string> = {
 
 export default function AgendaBuilderPage() {
   const params = useParams<{ meetingId: string }>();
+  const meetingId = params.meetingId;
   const router = useRouter();
-  const meeting = mockMeetings.find((m) => m.id === params.meetingId);
+  const queryClient = useQueryClient();
 
-  const [sections, setSections] = useState<AgendaSection[]>(
-    mockAgendas[params.meetingId] ?? []
-  );
-  const [published, setPublished] = useState(
-    meeting?.agendaStatus === "published"
-  );
+  const { data, isLoading } = useQuery({
+    queryKey: ["agenda", meetingId],
+    queryFn: async () => {
+      const res = await api.get(`/meetings/${meetingId}/agenda`);
+      return res.data;
+    },
+  });
 
-  function addSection() {
-    setSections((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), title: "New section", items: [] },
-    ]);
-  }
+  // Mutations
+  const updateStatus = useMutation({
+    mutationFn: async (status: string) => {
+      return api.patch(`/meetings/${meetingId}`, { agendaStatus: status });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agenda", meetingId] }),
+  });
 
-  function addItem(sectionId: string) {
-    setSections((prev) =>
-      prev.map((s) =>
-        s.id === sectionId
-          ? {
-              ...s,
-              items: [
-                ...s.items,
-                {
-                  id: crypto.randomUUID(),
-                  title: "New agenda item",
-                  purpose: "none",
-                  presenter: "",
-                  durationMinutes: 5,
-                },
-              ],
-            }
-          : s
-      )
+  const { data: members = [] } = useQuery({
+    queryKey: ["members", data?.organisationId],
+    queryFn: async () => {
+      if (!data?.organisationId) return [];
+      const res = await api.get(`/organisations/${data.organisationId}/members`);
+      return res.data;
+    },
+    enabled: !!data?.organisationId,
+  });
+
+  const createSection = useMutation({
+    mutationFn: async (title: string) => {
+      return api.post(`/meetings/${meetingId}/agenda/sections`, { title });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agenda", meetingId] }),
+  });
+
+  const updateSectionTitle = useMutation({
+    mutationFn: async ({ sectionId, title }: { sectionId: string; title: string }) => {
+      return api.patch(`/agenda/sections/${sectionId}`, { title });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agenda", meetingId] }),
+  });
+
+  const deleteSection = useMutation({
+    mutationFn: async (sectionId: string) => {
+      return api.delete(`/agenda/sections/${sectionId}`);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agenda", meetingId] }),
+  });
+
+  const createItem = useMutation({
+    mutationFn: async (sectionId: string) => {
+      return api.post(`/agenda/sections/${sectionId}/items`, {
+        title: "New agenda item",
+        purpose: "NONE",
+        durationMinutes: 5,
+      });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agenda", meetingId] }),
+  });
+
+  const updateItemCall = useMutation({
+    mutationFn: async ({ itemId, patch }: { itemId: string; patch: any }) => {
+      // Map purpose none/for_noting to uppercase if needed by backend enum
+      const payload = { ...patch };
+      if (payload.purpose) {
+        payload.purpose = payload.purpose.toUpperCase();
+      }
+      return api.patch(`/agenda/items/${itemId}`, payload);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agenda", meetingId] }),
+  });
+
+  const deleteItem = useMutation({
+    mutationFn: async (itemId: string) => {
+      return api.delete(`/agenda/items/${itemId}`);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agenda", meetingId] }),
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
     );
   }
 
-  function updateItem(
-    sectionId: string,
-    itemId: string,
-    patch: Partial<AgendaItem>
-  ) {
-    setSections((prev) =>
-      prev.map((s) =>
-        s.id !== sectionId
-          ? s
-          : {
-              ...s,
-              items: s.items.map((it) =>
-                it.id === itemId ? { ...it, ...patch } : it
-              ),
-            }
-      )
-    );
-  }
-
-  function updateSectionTitle(sectionId: string, title: string) {
-    setSections((prev) =>
-      prev.map((s) => (s.id === sectionId ? { ...s, title } : s))
-    );
-  }
-
-  if (!meeting) {
+  if (!data) {
     return <p className="text-muted-foreground">Meeting not found.</p>;
   }
+
+  const meeting = data;
+  const sections = data.agendaSections || [];
+  const published = meeting.agendaStatus === "PUBLISHED";
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -100,7 +137,7 @@ export default function AgendaBuilderPage() {
             {meeting.title} — Agenda
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {meeting.date} · {meeting.startTime}–{meeting.endTime}
+            {new Date(meeting.scheduledStartDate).toLocaleString()} - {new Date(meeting.scheduledEndDate).toLocaleTimeString()}
           </p>
         </div>
         <Badge variant={published ? "default" : "secondary"}>
@@ -116,57 +153,67 @@ export default function AgendaBuilderPage() {
       )}
 
       <div className="mt-6 space-y-6">
-        {sections.map((section) => (
+        {sections.map((section: any) => (
           <div
             key={section.id}
             className="rounded-md border border-border bg-card p-4"
           >
-            <Input
-              value={section.title}
-              disabled={published}
-              onChange={(e) =>
-                updateSectionTitle(section.id, e.target.value)
-              }
-              className="mb-3 max-w-sm font-medium"
-            />
+            <div className="flex items-center gap-2 mb-3">
+              <Input
+                defaultValue={section.title}
+                disabled={published}
+                onBlur={(e) => {
+                  if (e.target.value !== section.title) {
+                    updateSectionTitle.mutate({ sectionId: section.id, title: e.target.value });
+                  }
+                }}
+                className="font-medium"
+              />
+              {!published && (
+                <button 
+                  onClick={() => deleteSection.mutate(section.id)}
+                  className="p-2 text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
 
             <div className="space-y-3">
-              {section.items.map((item) => (
+              {section.items.map((item: any) => (
                 <div
                   key={item.id}
                   className="grid grid-cols-12 items-center gap-2 rounded-md border border-border p-3"
                 >
                   <Input
                     className="col-span-4"
-                    value={item.title}
+                    defaultValue={item.title}
                     disabled={published}
-                    onChange={(e) =>
-                      updateItem(section.id, item.id, {
-                        title: e.target.value,
-                      })
-                    }
+                    onBlur={(e) => {
+                      if (e.target.value !== item.title) {
+                        updateItemCall.mutate({ itemId: item.id, patch: { title: e.target.value } });
+                      }
+                    }}
                   />
                   <Input
                     className="col-span-3"
                     placeholder="Presenter"
-                    value={item.presenter}
+                    defaultValue={item.presenter || ""}
                     disabled={published}
-                    onChange={(e) =>
-                      updateItem(section.id, item.id, {
-                        presenter: e.target.value,
-                      })
-                    }
+                    onBlur={(e) => {
+                      if (e.target.value !== item.presenter) {
+                        updateItemCall.mutate({ itemId: item.id, patch: { presenter: e.target.value } });
+                      }
+                    }}
                   />
                   <Select
-                    value={item.purpose}
+                    value={item.purpose?.toLowerCase()}
                     disabled={published}
-                    onValueChange={(v) =>
-                      updateItem(section.id, item.id, {
-                        purpose: v as AgendaItem["purpose"],
-                      })
-                    }
+                    onValueChange={(v) => {
+                      updateItemCall.mutate({ itemId: item.id, patch: { purpose: v } });
+                    }}
                   >
-                    <SelectTrigger className="col-span-3">
+                    <SelectTrigger className="col-span-2">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -180,21 +227,66 @@ export default function AgendaBuilderPage() {
                   <Input
                     type="number"
                     className="col-span-2"
-                    value={item.durationMinutes}
+                    defaultValue={item.durationMinutes}
                     disabled={published}
-                    onChange={(e) =>
-                      updateItem(section.id, item.id, {
-                        durationMinutes: Number(e.target.value),
-                      })
-                    }
+                    onBlur={(e) => {
+                      const val = Number(e.target.value);
+                      if (val !== item.durationMinutes) {
+                        updateItemCall.mutate({ itemId: item.id, patch: { durationMinutes: val } });
+                      }
+                    }}
                   />
+                  {!published && (
+                    <div className="col-span-1 flex items-center justify-end gap-2">
+                      <Dialog>
+                        <DialogTrigger>
+                          <div className="p-2 text-muted-foreground hover:text-primary cursor-pointer">
+                            <UserPlus className="h-4 w-4" />
+                          </div>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Manage Guest Access</DialogTitle>
+                          </DialogHeader>
+                          <div className="py-4">
+                            <p className="text-sm text-muted-foreground mb-4">
+                              Select members who should have access to this item. (e.g., Guests/Observers)
+                            </p>
+                            {members?.map((m: any) => (
+                              <div key={m.id} className="flex items-center space-x-2 mb-2">
+                                <input
+                                  type="checkbox"
+                                  defaultChecked={item.guestAccess?.some((a: any) => a.memberId === m.id)}
+                                  onChange={(e) => {
+                                    const currentAccess = item.guestAccess?.map((a: any) => a.memberId) || [];
+                                    const newAccess = e.target.checked
+                                      ? [...currentAccess, m.id]
+                                      : currentAccess.filter((id: string) => id !== m.id);
+                                    api.post(`/meetings/${meetingId}/agenda/items/${item.id}/access`, { memberIds: newAccess })
+                                      .then(() => queryClient.invalidateQueries({ queryKey: ["agenda", meetingId] }));
+                                  }}
+                                />
+                                <span className="text-sm">{m.user.name} ({m.role})</span>
+                              </div>
+                            ))}
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                      <button 
+                        onClick={() => deleteItem.mutate(item.id)}
+                        className="p-2 text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
 
             {!published && (
               <button
-                onClick={() => addItem(section.id)}
+                onClick={() => createItem.mutate(section.id)}
                 className="mt-3 text-sm font-medium text-primary hover:underline"
               >
                 + Add agenda item
@@ -205,7 +297,7 @@ export default function AgendaBuilderPage() {
 
         {!published && (
           <button
-            onClick={addSection}
+            onClick={() => createSection.mutate("New Section")}
             className="rounded-md border border-dashed border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
           >
             + Add section
@@ -216,14 +308,14 @@ export default function AgendaBuilderPage() {
       <div className="mt-8 flex items-center gap-3">
         {!published ? (
           <button
-            onClick={() => setPublished(true)}
+            onClick={() => updateStatus.mutate("PUBLISHED")}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
             Publish agenda
           </button>
         ) : (
           <button
-            onClick={() => setPublished(false)}
+            onClick={() => updateStatus.mutate("DRAFT")}
             className="rounded-md px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
           >
             Roll back to draft

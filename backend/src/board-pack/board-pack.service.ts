@@ -329,7 +329,10 @@ export class BoardPackService {
     const details: [string, string][] = [
       ['Date', meeting.date],
       ['Time', `${meeting.startTime} – ${meeting.endTime}`],
-      ['Location', meeting.isRemote ? `${meeting.location} (Remote)` : meeting.location],
+      [
+        'Location',
+        meeting.isRemote ? `${meeting.location} (Remote)` : meeting.location,
+      ],
       ['Status', meeting.status],
       ['Agenda Status', meeting.agendaStatus],
     ];
@@ -377,7 +380,9 @@ export class BoardPackService {
 
         section.items.forEach((item, ii) => {
           const purposeTag =
-            item.purpose !== 'NONE' ? ` [${item.purpose.replace(/_/g, ' ')}]` : '';
+            item.purpose !== 'NONE'
+              ? ` [${item.purpose.replace(/_/g, ' ')}]`
+              : '';
           const duration = `${item.durationMinutes} min`;
           doc
             .font('Helvetica')
@@ -444,9 +449,14 @@ export class BoardPackService {
             .font('Helvetica')
             .fontSize(9)
             .fillColor(COLORS.muted)
-            .text(`Assignee: ${assignee}  ·  ${due}  ·  ${ai.status}`, 72, doc.y, {
-              width: pageWidth - 106,
-            })
+            .text(
+              `Assignee: ${assignee}  ·  ${due}  ·  ${ai.status}`,
+              72,
+              doc.y,
+              {
+                width: pageWidth - 106,
+              },
+            )
             .moveDown(0.3);
         });
       }
@@ -469,7 +479,10 @@ export class BoardPackService {
           })
           .font('Helvetica')
           .fillColor(COLORS.muted)
-          .text(`${sizeKb} KB  ·  ${d.mimeType}`, { align: 'right', width: 110 })
+          .text(`${sizeKb} KB  ·  ${d.mimeType}`, {
+            align: 'right',
+            width: 110,
+          })
           .moveDown(0.25);
       });
     }

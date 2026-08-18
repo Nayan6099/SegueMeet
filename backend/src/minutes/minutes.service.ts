@@ -10,11 +10,14 @@ import { OrganisationRole, Prisma } from '@prisma/client';
 import { PrismaService } from '../common/database/prisma.service';
 import { OrganisationsService } from '../organisations/organisations.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
+import * as crypto from 'crypto';
 import { CreateMinutesDto } from './dto/create-minutes.dto';
 import { UpdateMinutesDto } from './dto/update-minutes.dto';
 import { CreateActionItemDto } from './dto/create-action-item.dto';
 import { UpdateActionItemDto } from './dto/update-action-item.dto';
 import { AuditService } from '../audit/audit.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '@prisma/client';
 
 /** Roles permitted to create, update, or delete Minutes and Action Items. */
 const EDIT_ROLES: OrganisationRole[] = [
@@ -31,6 +34,7 @@ export class MinutesService {
     private readonly prisma: PrismaService,
     private readonly organisationsService: OrganisationsService,
     private readonly auditService: AuditService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -98,9 +102,7 @@ export class MinutesService {
       select: { id: true, name: true },
     });
     if (!assigneeUser) {
-      throw new NotFoundException(
-        `Assignee user ${assigneeId} does not exist`,
-      );
+      throw new NotFoundException(`Assignee user ${assigneeId} does not exist`);
     }
 
     const assigneeMembership = await this.prisma.organisationMember.findUnique({
@@ -202,10 +204,18 @@ export class MinutesService {
               },
             },
           },
+          signatures: {
+            include: {
+              signer: {
+                select: { id: true, name: true, email: true },
+              },
+            },
+          },
         },
       });
 
-      if (!minutes) throw new NotFoundException('No minutes found for this meeting');
+      if (!minutes)
+        throw new NotFoundException('No minutes found for this meeting');
 
       return minutes;
     } catch (error) {
@@ -321,6 +331,50 @@ export class MinutesService {
   // ─────────────────────────────────────────────
 
   /**
+   * GET /minutes/actions
+   * Fetch all action items across all meetings for an organisation
+   */
+  async getGlobalActionItems(organisationId: string, user: AuthenticatedUser, skip?: number, take?: number) {
+    await this.organisationsService.requireMembership(organisationId, user.id);
+
+    try {
+      const where = {
+        minutes: {
+          meeting: {
+            organisationId,
+          },
+        },
+      };
+
+      const [data, total] = await Promise.all([
+        this.prisma.minutesActionItem.findMany({
+          where,
+          include: {
+            assignee: { select: { id: true, name: true, email: true } },
+            minutes: {
+              include: {
+                meeting: { select: { id: true, title: true } },
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take,
+        }),
+        this.prisma.minutesActionItem.count({ where }),
+      ]);
+
+      return { data, total };
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch global action items for organisation ${organisationId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw new InternalServerErrorException('Failed to fetch action items');
+    }
+  }
+
+  /**
    * POST /minutes/:minutesId/action-items
    */
   async createActionItem(
@@ -367,8 +421,24 @@ export class MinutesService {
         action: 'action_item.created',
         entityType: 'MinutesActionItem',
         entityId: item.id,
-        payload: { minutesId, description: dto.description, status: dto.status },
+        payload: {
+          minutesId,
+          description: dto.description,
+          status: dto.status,
+        },
       });
+
+      if (dto.assigneeId && dto.assigneeId !== user.id) {
+        await this.notificationsService.createNotification({
+          organisationId,
+          recipientId: dto.assigneeId,
+          type: NotificationType.ACTION_ITEM_ASSIGNED,
+          title: 'Action Item Assigned',
+          message: `You have been assigned an action item: "${dto.description}"`,
+          entityType: 'MinutesActionItem',
+          entityId: item.id,
+        });
+      }
 
       return item;
     } catch (error) {
@@ -431,6 +501,18 @@ export class MinutesService {
         payload: { description: dto.description, status: dto.status },
       });
 
+      if (dto.assigneeId && dto.assigneeId !== item.assigneeId && dto.assigneeId !== user.id) {
+        await this.notificationsService.createNotification({
+          organisationId,
+          recipientId: dto.assigneeId,
+          type: NotificationType.ACTION_ITEM_ASSIGNED,
+          title: 'Action Item Assigned',
+          message: `You have been assigned an action item: "${dto.description || item.description}"`,
+          entityType: 'MinutesActionItem',
+          entityId: item.id,
+        });
+      }
+
       return updated;
     } catch (error) {
       this.logger.error(
@@ -460,7 +542,9 @@ export class MinutesService {
     }
 
     try {
-      await this.prisma.minutesActionItem.delete({ where: { id: actionItemId } });
+      await this.prisma.minutesActionItem.delete({
+        where: { id: actionItemId },
+      });
 
       this.auditService.log({
         organisationId,
@@ -477,6 +561,70 @@ export class MinutesService {
         error instanceof Error ? error.stack : String(error),
       );
       throw new InternalServerErrorException('Failed to delete action item');
+    }
+  }
+
+  /**
+   * POST /meetings/:meetingId/minutes/sign
+   */
+  async signMinutes(minutesId: string, user: AuthenticatedUser) {
+    const minutes = await this.resolveMinutes(minutesId);
+    const { organisationId } = minutes.meeting;
+
+    const membership = await this.organisationsService.requireMembership(
+      organisationId,
+      user.id,
+    );
+
+    // Only allow Board Admins, Chairs, or Secretaries to sign
+    if (!EDIT_ROLES.includes(membership.role)) {
+      throw new ForbiddenException('You do not have permission to sign minutes');
+    }
+
+    if (minutes.status !== 'CONFIRMED') {
+      throw new ForbiddenException('Minutes must be CONFIRMED before signing');
+    }
+
+    // Check if user already signed
+    const existingSignature = await this.prisma.minutesSignature.findUnique({
+      where: {
+        minutesId_signerId: {
+          minutesId,
+          signerId: user.id
+        }
+      }
+    });
+
+    if (existingSignature) {
+      throw new ForbiddenException('You have already signed these minutes');
+    }
+
+    try {
+      const timestamp = new Date().toISOString();
+      const contentToHash = `${minutes.id}-${minutes.content}-${timestamp}-${user.id}`;
+      const signatureHash = crypto.createHash('sha256').update(contentToHash).digest('hex');
+
+      const signature = await this.prisma.minutesSignature.create({
+        data: {
+          minutesId,
+          signerId: user.id,
+          signatureHash
+        }
+      });
+
+      this.auditService.log({
+        organisationId,
+        actorId: user.id,
+        action: 'minutes.signed',
+        entityType: 'Minutes',
+        entityId: minutes.id,
+        payload: { signatureHash },
+      });
+
+      return signature;
+    } catch (error) {
+      this.logger.error(`Failed to sign minutes ${minutesId}`, error instanceof Error ? error.stack : String(error));
+      throw new InternalServerErrorException('Failed to sign minutes');
     }
   }
 }

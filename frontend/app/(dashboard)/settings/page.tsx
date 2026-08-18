@@ -10,11 +10,40 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus } from "lucide-react";
+import { Plus, ShieldAlert, Loader2, Save } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import { useGetOrganisationSettings, useUpdateOrganisationSettings, useGetAuditLogs } from "@/hooks/use-settings";
+import { useState, useEffect } from "react";
 
 export default function SettingsPage() {
+  const { user } = useAuth();
+  const orgId = user?.memberships?.[0]?.organisationId;
+  const [name, setName] = useState("");
+  const [shortName, setShortName] = useState("");
+  const { data: orgData, isLoading } = useGetOrganisationSettings(orgId);
+  const updateMutation = useUpdateOrganisationSettings(orgId);
+  const { data: auditLogs = [], isLoading: isLoadingAudit } = useGetAuditLogs(orgId);
+
+  useEffect(() => {
+    if (orgData) {
+      setName(orgData.name || "");
+      setShortName(orgData.settings?.shortName || "");
+    }
+  }, [orgData]);
+
+  const handleSave = () => {
+    if (!name.trim()) return;
+    updateMutation.mutate({
+      name,
+      settings: {
+        ...orgData?.settings,
+        shortName,
+      }
+    });
+  };
+
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-8">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-8">
       {/* Header */}
       <div className="flex items-start justify-between mb-2">
         <div>
@@ -29,7 +58,7 @@ export default function SettingsPage() {
 
       <Tabs defaultValue="general" className="w-full">
         <div className="flex items-center justify-between border-b pb-0 mb-6">
-          <TabsList className="bg-transparent h-auto p-0 rounded-none border-none space-x-6">
+          <TabsList className="bg-transparent h-auto p-0 rounded-none border-none flex-nowrap overflow-x-auto w-full justify-start space-x-4 md:space-x-6 scrollbar-hide">
             <TabsTrigger
               value="general"
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-semibold text-slate-700 hover:text-slate-900"
@@ -61,6 +90,12 @@ export default function SettingsPage() {
               Notifications
             </TabsTrigger>
             <TabsTrigger
+              value="audit"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-slate-500 hover:text-slate-700"
+            >
+              Audit Logs
+            </TabsTrigger>
+            <TabsTrigger
               value="locations"
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-slate-500 hover:text-slate-700"
             >
@@ -70,38 +105,51 @@ export default function SettingsPage() {
         </div>
 
         <div className="flex justify-end mb-6">
-          <Button disabled className="bg-slate-200 text-slate-400 font-medium px-6 h-9 rounded-md">
+          <Button 
+            onClick={handleSave} 
+            disabled={updateMutation.isPending || isLoading || !name.trim()}
+            className="bg-[#6b21a8] hover:bg-[#581c87] text-white font-medium px-6 h-9 rounded-md"
+          >
+            {updateMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
             Save Changes
           </Button>
         </div>
 
         <TabsContent value="general" className="mt-0">
-          <div className="divide-y divide-slate-100 bg-white border border-slate-100 rounded-lg p-8 shadow-sm">
+          <div className="divide-y divide-slate-100 bg-white border border-slate-100 rounded-lg p-4 md:p-8 shadow-sm">
             
             {/* Organisation Name */}
-            <div className="grid grid-cols-3 gap-12 py-6 first:pt-0">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-12 py-6 first:pt-0">
               <div className="col-span-1">
                 <h3 className="text-sm font-medium text-slate-800">Organisation Name</h3>
                 <p className="text-sm text-slate-500 mt-1">Used on Agenda and Minutes.</p>
               </div>
               <div className="col-span-2">
-                <Input defaultValue="Kartikey Tech" className="max-w-2xl text-slate-700 h-10 border-slate-200" />
+                <Input 
+                  value={name} 
+                  onChange={(e) => setName(e.target.value)} 
+                  className="max-w-2xl text-slate-700 h-10 border-slate-200" 
+                />
               </div>
             </div>
 
             {/* Short Name */}
-            <div className="grid grid-cols-3 gap-12 py-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-12 py-6">
               <div className="col-span-1">
                 <h3 className="text-sm font-medium text-slate-800">Short Name</h3>
                 <p className="text-sm text-slate-500 mt-1">Used on the application interface.</p>
               </div>
               <div className="col-span-2">
-                <Input className="max-w-2xl h-10 border-slate-200" />
+                <Input 
+                  value={shortName} 
+                  onChange={(e) => setShortName(e.target.value)} 
+                  className="max-w-2xl h-10 border-slate-200" 
+                />
               </div>
             </div>
 
             {/* Country of Operation */}
-            <div className="grid grid-cols-3 gap-12 py-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-12 py-6">
               <div className="col-span-1">
                 <h3 className="text-sm font-medium text-slate-800">Country of Operation</h3>
                 <p className="text-sm text-slate-500 mt-1">Primary Country for this organisation.</p>
@@ -113,7 +161,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Organisation Language */}
-            <div className="grid grid-cols-3 gap-12 py-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-12 py-6">
               <div className="col-span-1">
                 <h3 className="text-sm font-medium text-slate-800">Organisation Language</h3>
                 <p className="text-sm text-slate-500 mt-1">Used on the PDFs for this organisation.</p>
@@ -133,7 +181,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Logo */}
-            <div className="grid grid-cols-3 gap-12 py-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-12 py-6">
               <div className="col-span-1">
                 <h3 className="text-sm font-medium text-slate-800">Logo</h3>
                 <p className="text-sm text-slate-500 mt-1">Used on the generated PDF's, such as Agenda, Board Pack, Minutes, etc.</p>
@@ -151,7 +199,7 @@ export default function SettingsPage() {
             </div>
 
             {/* Icon */}
-            <div className="grid grid-cols-3 gap-12 py-6 pb-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-12 py-6 pb-2">
               <div className="col-span-1">
                 <h3 className="text-sm font-medium text-slate-800">Icon</h3>
                 <p className="text-sm text-slate-500 mt-1">Used in the web and application interfaces.</p>
@@ -174,6 +222,57 @@ export default function SettingsPage() {
         {/* Empty state for other tabs just in case */}
         <TabsContent value="quorum">
           <div className="p-8 text-center text-slate-500 border rounded-lg bg-white mt-8">Quorum settings coming soon.</div>
+        </TabsContent>
+        
+        <TabsContent value="audit" className="mt-0">
+          <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
+            <div className="p-6 border-b bg-slate-50/50">
+              <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-blue-600" />
+                System Audit Logs
+              </h3>
+              <p className="text-sm text-slate-500 mt-1">A chronological record of all system actions for compliance and tracking.</p>
+            </div>
+            
+            {isLoadingAudit ? (
+              <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>
+            ) : auditLogs.length === 0 ? (
+              <div className="p-12 text-center text-slate-500">No audit logs found.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-50 text-slate-500 border-b">
+                    <tr>
+                      <th className="px-6 py-3 font-medium">Timestamp</th>
+                      <th className="px-6 py-3 font-medium">Actor</th>
+                      <th className="px-6 py-3 font-medium">Action</th>
+                      <th className="px-6 py-3 font-medium">Entity</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {auditLogs.map((log: any) => (
+                      <tr key={log.id} className="hover:bg-slate-50/50">
+                        <td className="px-6 py-3 text-slate-500 whitespace-nowrap">
+                          {new Date(log.createdAt).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-3 font-medium text-slate-700">
+                          {log.actor?.name || <span className="text-slate-400 italic">System</span>}
+                        </td>
+                        <td className="px-6 py-3">
+                          <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded-md text-xs font-semibold">
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="px-6 py-3 text-slate-600">
+                          {log.entityType} <span className="text-slate-400">({log.entityId.substring(0, 8)}...)</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
     </div>

@@ -1,12 +1,44 @@
+"use client";
+
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { mockPeople } from "@/lib/mock-people";
 import { User, ExternalLink, Info, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 
+import { useAuth } from "@/lib/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import { Loader2 } from "lucide-react";
+import { useState } from "react";
+import { BoardProfileTab } from "@/components/people/board-profile-tab";
+import { ChangesLogTab } from "@/components/people/changes-log-tab";
+import { InterestsRegisterTab } from "@/components/people/interests-register-tab";
+import { AddInterestModal } from "@/components/people/add-interest-modal";
+
 export default function PeoplePage() {
-  const boardMembers = mockPeople.filter(p => p.isBoardMember);
-  const otherMembers = mockPeople.filter(p => !p.isBoardMember);
+  const [activeTab, setActiveTab] = useState("people");
+  const [isAddInterestOpen, setIsAddInterestOpen] = useState(false);
+
+  const { user } = useAuth();
+  const orgId = user?.memberships?.[0]?.organisationId || user?.memberships?.[0]?.organisation?.id;
+
+  const { data: members = [], isLoading } = useQuery({
+    queryKey: ["members", orgId],
+    queryFn: async () => {
+      if (!orgId) return [];
+      const res = await api.get(`/organisations/${orgId}/members`);
+      return res.data;
+    },
+    enabled: !!orgId,
+  });
+
+  const boardMembers = members.filter((m: any) => 
+    ["BOARD_ADMIN", "CHAIR", "SECRETARY", "BOARD_MEMBER"].includes(m.role)
+  );
+  const otherMembers = members.filter((m: any) => 
+    !["BOARD_ADMIN", "CHAIR", "SECRETARY", "BOARD_MEMBER"].includes(m.role)
+  );
 
   const renderEmptyState = (message: string) => (
     <div className="border rounded-xl bg-white p-24 flex flex-col items-center justify-center text-center shadow-sm">
@@ -30,32 +62,26 @@ export default function PeoplePage() {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {people.map(person => (
+            {people.map((person: any) => (
               <tr key={person.id} className="hover:bg-gray-50 transition-colors">
                 <td className="px-6 py-4 font-medium text-slate-800 flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
-                    {person.name.charAt(0)}
+                    {person.user.name.charAt(0).toUpperCase()}
                   </div>
-                  {person.name}
+                  {person.user.name}
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex flex-wrap gap-2">
-                    {person.roles.map(role => (
-                      <span key={role} className="px-2 py-1 bg-gray-100 text-slate-600 rounded-md text-xs font-medium">
-                        {role}
-                      </span>
-                    ))}
+                    <span className="px-2 py-1 bg-gray-100 text-slate-600 rounded-md text-xs font-medium">
+                      {person.role.replace('_', ' ')}
+                    </span>
                   </div>
                 </td>
-                <td className="px-6 py-4 text-slate-500">{person.email}</td>
+                <td className="px-6 py-4 text-slate-500">{person.user.email}</td>
                 <td className="px-6 py-4">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center w-fit gap-1.5 ${
-                    person.status === "Active" ? "bg-green-100 text-green-700" :
-                    person.status === "Pending" ? "bg-yellow-100 text-yellow-700" :
-                    "bg-gray-100 text-gray-700"
-                  }`}>
-                    {person.status === "Active" && <CheckCircle2 className="w-3 h-3" />}
-                    {person.status}
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center w-fit gap-1.5 bg-green-100 text-green-700`}>
+                    <CheckCircle2 className="w-3 h-3" />
+                    Active
                   </span>
                 </td>
               </tr>
@@ -78,12 +104,34 @@ export default function PeoplePage() {
             </span>
           </h1>
         </div>
-        <Button className="bg-slate-800 hover:bg-slate-700 text-white rounded-full px-6">
-          + Add Person
-        </Button>
+        {activeTab === "interests" ? (
+          <Button 
+            onClick={() => setIsAddInterestOpen(true)}
+            className="bg-[#2d1b54] hover:bg-[#1a0f35] text-white rounded-md px-6 shadow-sm flex items-center gap-2 font-medium h-9"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Add New Interest
+          </Button>
+        ) : (
+          <Button className="bg-slate-300 hover:bg-slate-400 text-slate-700 rounded-md px-6 shadow-sm flex items-center gap-2 font-medium h-9">
+            <User className="w-4 h-4" />
+            Add Person
+          </Button>
+        )}
       </div>
 
-      <Tabs defaultValue="people" className="w-full">
+      {orgId && (
+        <AddInterestModal
+          organisationId={orgId}
+          members={members}
+          isOpen={isAddInterestOpen}
+          onOpenChange={setIsAddInterestOpen}
+        />
+      )}
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="flex items-center justify-between border-b pb-0 mb-6">
           <TabsList className="bg-transparent h-auto p-0 rounded-none border-none space-x-6">
             <TabsTrigger 
@@ -119,6 +167,13 @@ export default function PeoplePage() {
 
         <TabsContent value="people" className="mt-0 space-y-8">
           
+          {isLoading ? (
+            <div className="flex h-[50vh] items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <>
+          
           {/* Email Confirmation Banner (Mock) */}
           <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex gap-3 text-sm">
             <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
@@ -138,17 +193,19 @@ export default function PeoplePage() {
             {otherMembers.length === 0 ? renderEmptyState("No other members listed") : renderPeopleList(otherMembers)}
           </div>
 
+            </>
+          )}
+
         </TabsContent>
         
-        {/* Empty placeholder tabs for the others for now */}
         <TabsContent value="profile" className="mt-0">
-          {renderEmptyState("Board Profile configuration not yet built.")}
+          <BoardProfileTab />
         </TabsContent>
         <TabsContent value="changes" className="mt-0">
-          {renderEmptyState("No changes logged.")}
+          {orgId && <ChangesLogTab organisationId={orgId} />}
         </TabsContent>
         <TabsContent value="interests" className="mt-0">
-          {renderEmptyState("Interests Register moved to its own module.")}
+          {orgId && <InterestsRegisterTab organisationId={orgId} />}
         </TabsContent>
       </Tabs>
     </div>
