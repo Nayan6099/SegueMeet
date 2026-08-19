@@ -155,7 +155,7 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
   return (
     <>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        {trigger && React.cloneElement(trigger as React.ReactElement, { onClick: () => setIsOpen(true) })}
+        {trigger && React.cloneElement(trigger as React.ReactElement<any>, { onClick: () => setIsOpen(true) })}
         <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden">
           <div className="p-6">
             <DialogHeader className="mb-6 flex flex-row items-center gap-2">

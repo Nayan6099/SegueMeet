@@ -342,6 +342,18 @@ export default function MinutesPage() {
             </button>
           </>
         )}
+        {status === "confirmed" && isEditor && (
+          <button
+            onClick={() => {
+              if (minutes?.id) {
+                updateMinutesCall.mutate({ minutesId: minutes.id, status: "IN_REVIEW" });
+              }
+            }}
+            className="rounded-md px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+          >
+            Roll back to review
+          </button>
+        )}
         <button
           onClick={() => router.push("/meetings")}
           className="rounded-md px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
