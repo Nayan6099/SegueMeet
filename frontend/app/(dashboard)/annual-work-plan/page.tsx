@@ -5,6 +5,8 @@ import { ClipboardList, ExternalLink, FileUp, PlusSquare, Loader2, Calendar } fr
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { useGetAnnualPlans, useCreateAnnualPlan } from "@/hooks/use-annual-plan";
+import { AddItemModal } from "@/components/annual-plan/add-item-modal";
+import { useState } from "react";
 
 export default function AnnualWorkPlanPage() {
   const { user } = useAuth();
@@ -13,6 +15,7 @@ export default function AnnualWorkPlanPage() {
 
   const { data: plans = [], isLoading } = useGetAnnualPlans(orgId, currentYear);
   const createPlan = useCreateAnnualPlan(orgId, currentYear);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const activePlan = plans[0];
 
@@ -28,13 +31,15 @@ export default function AnnualWorkPlanPage() {
             </span>
           </h1>
         </div>
-        <Button 
-          onClick={() => orgId && createPlan.mutate()}
-          disabled={createPlan.isPending || !orgId}
-          className="bg-[#1e1b4b] hover:bg-[#2e2b5b] text-white rounded-md px-6 h-9 self-start sm:self-auto"
-        >
-          {createPlan.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "+ Add"}
-        </Button>
+        {!activePlan && (
+          <Button 
+            onClick={() => orgId && createPlan.mutate()}
+            disabled={createPlan.isPending || !orgId}
+            className="bg-[#1e1b4b] hover:bg-[#2e2b5b] text-white rounded-md px-6 h-9 self-start sm:self-auto"
+          >
+            {createPlan.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "+ Add"}
+          </Button>
+        )}
       </div>
 
       {/* Content Area */}
@@ -75,14 +80,19 @@ export default function AnnualWorkPlanPage() {
         </div>
       ) : (
         <div className="border border-slate-200 rounded-xl bg-white shadow-sm overflow-x-auto">
-          <div className="p-6 border-b bg-slate-50 flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-blue-600" />
-              {currentYear} Work Plan
-            </h2>
-            <div className="text-sm font-medium text-slate-500">
-              {activePlan.items?.length || 0} items scheduled
+          <div className="p-6 border-b bg-slate-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-blue-600" />
+                {currentYear} Work Plan
+              </h2>
+              <div className="text-sm font-medium text-slate-500 mt-1">
+                {activePlan.items?.length || 0} items scheduled
+              </div>
             </div>
+            <Button onClick={() => setIsAddModalOpen(true)} className="bg-[#1e1b4b] hover:bg-[#2e2b5b] text-white h-9">
+              + Add Item
+            </Button>
           </div>
           
           {activePlan.items?.length > 0 ? (
@@ -123,6 +133,16 @@ export default function AnnualWorkPlanPage() {
             </div>
           )}
         </div>
+      )}
+      
+      {activePlan && orgId && (
+        <AddItemModal
+          open={isAddModalOpen}
+          onOpenChange={setIsAddModalOpen}
+          organisationId={orgId}
+          year={currentYear}
+          planId={activePlan.id}
+        />
       )}
     </div>
   );
