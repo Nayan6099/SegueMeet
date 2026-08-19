@@ -253,15 +253,19 @@ export default function MeetingOverviewPage({ params }: { params: Promise<{ meet
       <div className="flex justify-between items-start mb-12">
         <h1 className="text-[32px] font-normal text-slate-800">{meeting.title}</h1>
 
-        <div className="flex flex-col items-center gap-1.5">
-          <span className="text-[11px] font-semibold text-slate-800 uppercase tracking-wide">No Agenda</span>
-          <Button
-            onClick={() => setIsBuildAgendaOpen(true)}
-            className="bg-emerald-500 hover:bg-emerald-600 text-white rounded font-medium px-4 h-8 text-sm shadow-sm"
-          >
-            Build Agenda
-          </Button>
-        </div>
+        {meeting.agendaStatus !== 'PUBLISHED' && (
+          <div className="flex flex-col items-center gap-1.5">
+            <span className="text-[11px] font-semibold text-slate-800 uppercase tracking-wide">
+              {meeting.agendaSections?.length > 0 ? 'Edit Agenda' : 'No Agenda'}
+            </span>
+            <Button
+              onClick={() => setIsBuildAgendaOpen(true)}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white rounded font-medium px-4 h-8 text-sm shadow-sm"
+            >
+              Build Agenda
+            </Button>
+          </div>
+        )}
       </div>
 
       <BuildAgendaModal
