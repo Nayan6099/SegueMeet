@@ -449,14 +449,15 @@ function MinuteBlockEditor({
       {block.blockType === "action" && (
         <div className="mt-2 grid grid-cols-2 gap-2">
           <Select
-            value={block.actionOwner ? block.actionOwner : undefined}
+            value={block.actionOwner || "unassigned"}
             disabled={locked}
-            onValueChange={(v) => onChange({ actionOwner: v as any })}
+            onValueChange={(v) => onChange({ actionOwner: v === "unassigned" ? "" : (v as any) })}
           >
             <SelectTrigger>
               <SelectValue placeholder="Select Owner" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="unassigned" className="text-muted-foreground italic">Unassigned</SelectItem>
               {members.map((m) => (
                 <SelectItem key={m.user.id} value={m.user.id}>
                   {m.user.name}
