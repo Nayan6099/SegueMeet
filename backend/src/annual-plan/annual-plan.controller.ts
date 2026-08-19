@@ -64,6 +64,18 @@ export class AnnualPlanController {
     return this.annualPlanService.createPlanItem(id, body, user);
   }
 
+  @Post(':id/items/bulk')
+  createPlanItemsBulk(
+    @Param('id') id: string,
+    @Body() body: { items: Array<{ title: string; description?: string; month: number; status?: string }> },
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!body.items || !Array.isArray(body.items)) {
+      throw new BadRequestException('items array is required');
+    }
+    return this.annualPlanService.createPlanItemsBulk(id, body.items, user);
+  }
+
   @Patch(':id/items/:itemId')
   updatePlanItem(
     @Param('id') id: string,

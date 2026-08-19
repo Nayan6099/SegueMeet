@@ -48,8 +48,22 @@ export function useDeleteAnnualPlan(organisationId: string | undefined, year: nu
 export function useCreatePlanItem(organisationId: string | undefined, year: number, planId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { title: string; description?: string; month: number }) => {
+    mutationFn: async (data: { title: string; description?: string; month: number; status?: string }) => {
       const res = await api.post(`/annual-plans/${planId}/items`, data);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["annual-plans", organisationId, year] });
+    },
+  });
+}
+
+// Bulk create items for an annual plan
+export function useCreatePlanItemsBulk(organisationId: string | undefined, year: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ planId, items }: { planId: string, items: Array<{ title: string; description?: string; month: number; status?: string }> }) => {
+      const res = await api.post(`/annual-plans/${planId}/items/bulk`, { items });
       return res.data;
     },
     onSuccess: () => {

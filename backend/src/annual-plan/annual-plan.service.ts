@@ -122,23 +122,65 @@ export class AnnualPlanService {
           title: data.title,
           description: data.description,
           month: data.month,
-          status: data.status || 'TODO',
+          status: (data.status as any) || 'TODO',
         },
       });
 
       this.auditService.log({
         organisationId: plan.organisationId,
         actorId: user.id,
-        action: 'annual_plan.item.created',
-        entityType: 'AnnualPlanItem',
+        action: 'annual_plan.item_added',
+        entityType: 'PlanItem',
         entityId: item.id,
-        payload: { title: data.title },
       });
 
       return item;
     } catch (error) {
-      this.logger.error(`Failed to create plan item for plan ${planId}`, error);
+      this.logger.error(`Failed to create plan item`, error instanceof Error ? error.stack : String(error));
       throw new InternalServerErrorException('Failed to create plan item');
+    }
+  }
+
+  async createPlanItemsBulk(
+    planId: string,
+    items: Array<{ title: string; description?: string; month: number; status?: string }>,
+    user: AuthenticatedUser,
+  ) {
+    const plan = await this.prisma.annualPlan.findUnique({ where: { id: planId } });
+    if (!plan) throw new BadRequestException('Plan not found');
+
+    await this.organisationsService.requireRole(
+      plan.organisationId,
+      user.id,
+      CAN_MANAGE_WORK_PLAN
+    );
+
+    try {
+      const dataToInsert = items.map(item => ({
+        annualPlanId: planId,
+        title: item.title,
+        description: item.description,
+        month: item.month,
+        status: (item.status as any) || 'TODO',
+      }));
+
+      const result = await this.prisma.planItem.createMany({
+        data: dataToInsert,
+      });
+
+      this.auditService.log({
+        organisationId: plan.organisationId,
+        actorId: user.id,
+        action: 'annual_plan.items_bulk_added',
+        entityType: 'AnnualPlan',
+        entityId: plan.id,
+        payload: { count: result.count }
+      });
+
+      return { count: result.count };
+    } catch (error) {
+      this.logger.error(`Failed to bulk create plan items`, error instanceof Error ? error.stack : String(error));
+      throw new InternalServerErrorException('Failed to bulk create plan items');
     }
   }
 

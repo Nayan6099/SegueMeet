@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 import { ClipboardList, ExternalLink, FileUp, PlusSquare, Loader2, Calendar, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
-import { useGetAnnualPlans, useCreateAnnualPlan, useDeleteAnnualPlan } from "@/hooks/use-annual-plan";
+import { useGetAnnualPlans, useCreateAnnualPlan, useDeleteAnnualPlan, useCreatePlanItemsBulk } from "@/hooks/use-annual-plan";
 import { AddItemModal } from "@/components/annual-plan/add-item-modal";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Select,
   SelectContent,
@@ -25,6 +25,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Label } from "@/components/ui/label";
 
 export default function AnnualWorkPlanPage() {
   const { user } = useAuth();
@@ -35,11 +36,84 @@ export default function AnnualWorkPlanPage() {
   const { data: plans = [], isPending } = useGetAnnualPlans(orgId, selectedYear);
   const createPlan = useCreateAnnualPlan(orgId, selectedYear);
   const deletePlan = useDeleteAnnualPlan(orgId, selectedYear);
+  const createBulk = useCreatePlanItemsBulk(orgId, selectedYear);
+  
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const activePlan = plans[0];
-
   const yearOptions = [currentRealYear - 1, currentRealYear, currentRealYear + 1, currentRealYear + 2];
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !orgId) return;
+
+    setIsUploading(true);
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(line => line.trim());
+      if (lines.length < 2) throw new Error("CSV is empty or missing headers");
+
+      const splitLine = (str: string) => {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < str.length; i++) {
+          if (str[i] === '"') {
+            inQuotes = !inQuotes;
+          } else if (str[i] === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+          } else {
+            current += str[i];
+          }
+        }
+        result.push(current.trim());
+        return result.map(s => s.replace(/^"|"$/g, ''));
+      };
+
+      const headers = splitLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+      const parsedItems = lines.slice(1).map(line => {
+        const values = splitLine(line);
+        const row: Record<string, string> = {};
+        headers.forEach((header, index) => {
+          row[header] = values[index] || '';
+        });
+        return row;
+      });
+
+      const formattedItems = parsedItems.map(row => {
+        return {
+          title: row.title || 'Untitled',
+          description: row.description || '',
+          month: parseInt(row.month, 10) || 1,
+          status: row.status ? row.status.toUpperCase().replace(/\s+/g, '_') : 'TODO'
+        };
+      }).filter(item => item.title);
+
+      if (formattedItems.length === 0) throw new Error("No valid items found in CSV");
+
+      let targetPlanId = activePlan?.id;
+      
+      // If plan doesn't exist, create it first
+      if (!targetPlanId) {
+        const newPlan = await createPlan.mutateAsync();
+        targetPlanId = newPlan.id;
+      }
+
+      await createBulk.mutateAsync({ planId: targetPlanId, items: formattedItems });
+      
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } catch (error) {
+      console.error("Failed to import CSV", error);
+      alert("Failed to import CSV. Ensure it has headers like Month, Title, Description, Status.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8">
@@ -94,13 +168,26 @@ export default function AnnualWorkPlanPage() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center gap-4 mb-6 w-full sm:w-auto">
-            <Button variant="outline" className="w-full sm:w-auto border-slate-300 text-slate-700 h-10 px-4 flex items-center justify-center gap-2">
-              <FileUp className="w-4 h-4 shrink-0" />
+            <Label 
+              htmlFor="csv-upload" 
+              className={`cursor-pointer w-full sm:w-auto border border-slate-300 text-slate-700 h-10 px-4 flex items-center justify-center gap-2 rounded-md hover:bg-slate-50 transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileUp className="w-4 h-4 shrink-0" />}
               Import existing plan
-            </Button>
+            </Label>
+            <input 
+              id="csv-upload"
+              type="file" 
+              accept=".csv"
+              className="hidden" 
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              disabled={isUploading}
+            />
+            
             <Button 
               onClick={() => orgId && createPlan.mutate()} 
-              disabled={createPlan.isPending || !orgId}
+              disabled={createPlan.isPending || !orgId || isUploading}
               className="w-full sm:w-auto bg-[#2e2a74] hover:bg-[#1e1b4b] text-white h-10 px-4 flex items-center justify-center gap-2"
             >
               <PlusSquare className="w-4 h-4 shrink-0" />
@@ -125,6 +212,23 @@ export default function AnnualWorkPlanPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <input 
+                id="csv-upload-active"
+                type="file" 
+                accept=".csv"
+                className="hidden" 
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                disabled={isUploading}
+              />
+              <Label 
+                htmlFor="csv-upload-active" 
+                className={`cursor-pointer h-9 px-4 border border-slate-200 rounded-md bg-white hover:bg-slate-50 text-slate-700 flex items-center text-sm font-medium transition-colors ${isUploading ? 'opacity-50' : ''}`}
+              >
+                {isUploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileUp className="w-4 h-4 mr-2" />}
+                Import CSV
+              </Label>
+
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="outline" className="h-9 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200">
