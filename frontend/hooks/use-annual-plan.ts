@@ -10,7 +10,7 @@ export function useGetAnnualPlans(organisationId: string | undefined, year: numb
       const res = await api.get(`/annual-plans`, {
         params: { organisationId, year },
       });
-      return res.data.data || res.data || [];
+      return res.data;
     },
     enabled: !!organisationId,
   });
@@ -30,11 +30,11 @@ export function useCreateAnnualPlan(organisationId: string | undefined, year: nu
   });
 }
 
-// Create an item inside an annual plan
+// Create a new item for an annual plan
 export function useCreatePlanItem(organisationId: string | undefined, year: number, planId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { title: string; description?: string; month: number; status?: string }) => {
+    mutationFn: async (data: { title: string; description?: string; month: number }) => {
       const res = await api.post(`/annual-plans/${planId}/items`, data);
       return res.data;
     },

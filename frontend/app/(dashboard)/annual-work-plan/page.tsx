@@ -8,16 +8,13 @@ import { useGetAnnualPlans, useCreateAnnualPlan } from "@/hooks/use-annual-plan"
 import { AddItemModal } from "@/components/annual-plan/add-item-modal";
 import { useState } from "react";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
 export default function AnnualWorkPlanPage() {
   const { user } = useAuth();
   const orgId = user?.memberships?.[0]?.organisationId;
   const currentYear = new Date().getFullYear();
-  const [selectedYear, setSelectedYear] = useState(currentYear);
 
-  const { data: plans = [], isPending } = useGetAnnualPlans(orgId, selectedYear);
-  const createPlan = useCreateAnnualPlan(orgId, selectedYear);
+  const { data: plans = [], isPending } = useGetAnnualPlans(orgId, currentYear);
+  const createPlan = useCreateAnnualPlan(orgId, currentYear);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const activePlan = plans[0];
@@ -34,18 +31,15 @@ export default function AnnualWorkPlanPage() {
             </span>
           </h1>
         </div>
-        <div className="flex items-center gap-3 self-start sm:self-auto">
-          <Select value={selectedYear.toString()} onValueChange={(v) => setSelectedYear(parseInt(v))}>
-            <SelectTrigger className="w-32 bg-white">
-              <SelectValue placeholder="Year" />
-            </SelectTrigger>
-            <SelectContent>
-              {[currentYear - 1, currentYear, currentYear + 1, currentYear + 2].map((y) => (
-                <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {!activePlan && (
+          <Button 
+            onClick={() => orgId && createPlan.mutate()}
+            disabled={createPlan.isPending || !orgId}
+            className="bg-[#1e1b4b] hover:bg-[#2e2b5b] text-white rounded-md px-6 h-9 self-start sm:self-auto"
+          >
+            {createPlan.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "+ Add"}
+          </Button>
+        )}
       </div>
 
       {/* Content Area */}
@@ -58,7 +52,7 @@ export default function AnnualWorkPlanPage() {
           </div>
           
           <h2 className="text-lg font-semibold text-[#1e1b4b] mb-3">
-            Create an annual work plan for {selectedYear}
+            Create an annual work plan for {currentYear}
           </h2>
           
           <p className="text-slate-500 text-sm max-w-sm mb-8">
@@ -90,7 +84,7 @@ export default function AnnualWorkPlanPage() {
             <div>
               <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-blue-600" />
-                {selectedYear} Work Plan
+                {currentYear} Work Plan
               </h2>
               <div className="text-sm font-medium text-slate-500 mt-1">
                 {activePlan.items?.length || 0} items scheduled
