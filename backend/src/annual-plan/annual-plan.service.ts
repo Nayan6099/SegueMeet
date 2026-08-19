@@ -3,7 +3,6 @@ import {
   InternalServerErrorException,
   Logger,
   ForbiddenException,
-  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../common/database/prisma.service';
 import { OrganisationsService } from '../organisations/organisations.service';
@@ -73,97 +72,6 @@ export class AnnualPlanService {
         error instanceof Error ? error.stack : String(error),
       );
       throw new InternalServerErrorException('Failed to create annual plan');
-    }
-  }
-
-  async createPlanItem(
-    planId: string,
-    data: { title: string; description?: string; month: number; status?: string },
-    user: AuthenticatedUser
-  ) {
-    const plan = await this.prisma.annualPlan.findUnique({ where: { id: planId } });
-    if (!plan) throw new BadRequestException('Annual plan not found');
-
-    await this.organisationsService.requireRole(
-      plan.organisationId,
-      user.id,
-      CAN_MANAGE_WORK_PLAN
-    );
-
-    try {
-      const item = await this.prisma.planItem.create({
-        data: {
-          annualPlanId: planId,
-          title: data.title,
-          description: data.description,
-          month: data.month,
-          status: data.status || 'TODO',
-        },
-      });
-
-      this.auditService.log({
-        organisationId: plan.organisationId,
-        actorId: user.id,
-        action: 'annual_plan.item.created',
-        entityType: 'AnnualPlanItem',
-        entityId: item.id,
-        payload: { title: data.title },
-      });
-
-      return item;
-    } catch (error) {
-      this.logger.error(`Failed to create plan item for plan ${planId}`, error);
-      throw new InternalServerErrorException('Failed to create plan item');
-    }
-  }
-
-  async updatePlanItem(
-    planId: string,
-    itemId: string,
-    data: { title?: string; description?: string; month?: number; status?: string },
-    user: AuthenticatedUser
-  ) {
-    const plan = await this.prisma.annualPlan.findUnique({ where: { id: planId } });
-    if (!plan) throw new BadRequestException('Annual plan not found');
-
-    await this.organisationsService.requireRole(
-      plan.organisationId,
-      user.id,
-      CAN_MANAGE_WORK_PLAN
-    );
-
-    try {
-      const updated = await this.prisma.planItem.update({
-        where: { id: itemId, annualPlanId: planId },
-        data,
-      });
-
-      return updated;
-    } catch (error) {
-      this.logger.error(`Failed to update plan item ${itemId}`, error);
-      throw new InternalServerErrorException('Failed to update plan item');
-    }
-  }
-
-  async deletePlanItem(planId: string, itemId: string, user: AuthenticatedUser) {
-    const plan = await this.prisma.annualPlan.findUnique({ where: { id: planId } });
-    if (!plan) throw new BadRequestException('Annual plan not found');
-
-    await this.organisationsService.requireRole(
-      plan.organisationId,
-      user.id,
-      CAN_MANAGE_WORK_PLAN
-    );
-
-    try {
-      await this.prisma.planItem.delete({
-        where: { id: itemId, annualPlanId: planId },
-      });
-
-      return { success: true };
-    } catch (error) {
-      this.logger.error(`Failed to delete plan item ${itemId}`, error);
-      throw new InternalServerErrorException('Failed to delete plan item');
     }
   }
 }
