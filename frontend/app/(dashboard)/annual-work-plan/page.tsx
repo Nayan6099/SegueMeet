@@ -140,7 +140,12 @@ export default function AnnualWorkPlanPage() {
           </Select>
           {!activePlan && (
             <Button 
-              onClick={() => orgId && createPlan.mutate()}
+              onClick={async () => {
+                if (orgId) {
+                  await createPlan.mutateAsync();
+                  setIsAddModalOpen(true);
+                }
+              }}
               disabled={createPlan.isPending || !orgId}
               className="bg-[#1e1b4b] hover:bg-[#2e2b5b] text-white rounded-md px-6 h-9"
             >
@@ -186,7 +191,12 @@ export default function AnnualWorkPlanPage() {
             />
             
             <Button 
-              onClick={() => orgId && createPlan.mutate()} 
+              onClick={async () => {
+                if (orgId) {
+                  await createPlan.mutateAsync();
+                  setIsAddModalOpen(true);
+                }
+              }}
               disabled={createPlan.isPending || !orgId || isUploading}
               className="w-full sm:w-auto bg-[#2e2a74] hover:bg-[#1e1b4b] text-white h-10 px-4 flex items-center justify-center gap-2"
             >
