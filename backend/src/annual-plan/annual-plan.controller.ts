@@ -2,8 +2,11 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Delete,
   Body,
   Query,
+  Param,
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
@@ -39,5 +42,35 @@ export class AnnualPlanController {
       throw new BadRequestException('organisationId is required');
     }
     return this.annualPlanService.createAnnualPlan(body.organisationId, body.year || new Date().getFullYear(), user);
+  }
+  @Post(':id/items')
+  createPlanItem(
+    @Param('id') id: string,
+    @Body() body: { title: string; description?: string; month: number; status?: string },
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!body.title || !body.month) {
+      throw new BadRequestException('title and month are required');
+    }
+    return this.annualPlanService.createPlanItem(id, body, user);
+  }
+
+  @Patch(':id/items/:itemId')
+  updatePlanItem(
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @Body() body: { title?: string; description?: string; month?: number; status?: string },
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.annualPlanService.updatePlanItem(id, itemId, body, user);
+  }
+
+  @Delete(':id/items/:itemId')
+  deletePlanItem(
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.annualPlanService.deletePlanItem(id, itemId, user);
   }
 }
