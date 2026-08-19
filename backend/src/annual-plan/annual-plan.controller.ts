@@ -43,6 +43,15 @@ export class AnnualPlanController {
     }
     return this.annualPlanService.createAnnualPlan(body.organisationId, body.year || new Date().getFullYear(), user);
   }
+
+  @Delete(':id')
+  deleteAnnualPlan(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.annualPlanService.deleteAnnualPlan(id, user);
+  }
+
   @Post(':id/items')
   createPlanItem(
     @Param('id') id: string,

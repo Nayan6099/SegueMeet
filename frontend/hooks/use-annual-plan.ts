@@ -30,6 +30,20 @@ export function useCreateAnnualPlan(organisationId: string | undefined, year: nu
   });
 }
 
+// Delete an annual plan
+export function useDeleteAnnualPlan(organisationId: string | undefined, year: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (planId: string) => {
+      const res = await api.delete(`/annual-plans/${planId}`);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["annual-plans", organisationId, year] });
+    },
+  });
+}
+
 // Create a new item for an annual plan
 export function useCreatePlanItem(organisationId: string | undefined, year: number, planId: string) {
   const queryClient = useQueryClient();

@@ -60,21 +60,46 @@ export class AnnualPlanService {
       this.auditService.log({
         organisationId,
         actorId: user.id,
-        action: 'annual_plan.created_or_accessed',
+        action: 'annual_plan.created',
         entityType: 'AnnualPlan',
         entityId: plan.id,
-        payload: { year },
       });
 
       return plan;
     } catch (error) {
-      this.logger.error(
-        `Failed to create annual plan for organisation ${organisationId} year ${year}`,
-        error instanceof Error ? error.stack : String(error),
-      );
+      this.logger.error(`Failed to create annual plan`, error instanceof Error ? error.stack : String(error));
       throw new InternalServerErrorException('Failed to create annual plan');
     }
   }
+
+  async deleteAnnualPlan(id: string, user: AuthenticatedUser) {
+    const plan = await this.prisma.annualPlan.findUnique({ where: { id } });
+    if (!plan) throw new BadRequestException('Plan not found');
+
+    await this.organisationsService.requireRole(
+      plan.organisationId,
+      user.id,
+      CAN_MANAGE_WORK_PLAN
+    );
+
+    try {
+      await this.prisma.annualPlan.delete({ where: { id } });
+
+      this.auditService.log({
+        organisationId: plan.organisationId,
+        actorId: user.id,
+        action: 'annual_plan.deleted',
+        entityType: 'AnnualPlan',
+        entityId: id,
+      });
+
+      return { success: true };
+    } catch (error) {
+      this.logger.error(`Failed to delete annual plan`, error instanceof Error ? error.stack : String(error));
+      throw new InternalServerErrorException('Failed to delete annual plan');
+    }
+  }
+
 
   async createPlanItem(
     planId: string,

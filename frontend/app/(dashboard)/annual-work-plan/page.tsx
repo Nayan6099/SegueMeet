@@ -1,23 +1,45 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { ClipboardList, ExternalLink, FileUp, PlusSquare, Loader2, Calendar } from "lucide-react";
+import { ClipboardList, ExternalLink, FileUp, PlusSquare, Loader2, Calendar, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
-import { useGetAnnualPlans, useCreateAnnualPlan } from "@/hooks/use-annual-plan";
+import { useGetAnnualPlans, useCreateAnnualPlan, useDeleteAnnualPlan } from "@/hooks/use-annual-plan";
 import { AddItemModal } from "@/components/annual-plan/add-item-modal";
 import { useState } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function AnnualWorkPlanPage() {
   const { user } = useAuth();
   const orgId = user?.memberships?.[0]?.organisationId;
-  const currentYear = new Date().getFullYear();
+  const currentRealYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState(currentRealYear);
 
-  const { data: plans = [], isPending } = useGetAnnualPlans(orgId, currentYear);
-  const createPlan = useCreateAnnualPlan(orgId, currentYear);
+  const { data: plans = [], isPending } = useGetAnnualPlans(orgId, selectedYear);
+  const createPlan = useCreateAnnualPlan(orgId, selectedYear);
+  const deletePlan = useDeleteAnnualPlan(orgId, selectedYear);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const activePlan = plans[0];
+
+  const yearOptions = [currentRealYear - 1, currentRealYear, currentRealYear + 1, currentRealYear + 2];
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8">
@@ -31,15 +53,27 @@ export default function AnnualWorkPlanPage() {
             </span>
           </h1>
         </div>
-        {!activePlan && (
-          <Button 
-            onClick={() => orgId && createPlan.mutate()}
-            disabled={createPlan.isPending || !orgId}
-            className="bg-[#1e1b4b] hover:bg-[#2e2b5b] text-white rounded-md px-6 h-9 self-start sm:self-auto"
-          >
-            {createPlan.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "+ Add"}
-          </Button>
-        )}
+        <div className="flex items-center gap-3">
+          <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val, 10))}>
+            <SelectTrigger className="w-[120px] bg-white">
+              <SelectValue placeholder="Year" />
+            </SelectTrigger>
+            <SelectContent>
+              {yearOptions.map(y => (
+                <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {!activePlan && (
+            <Button 
+              onClick={() => orgId && createPlan.mutate()}
+              disabled={createPlan.isPending || !orgId}
+              className="bg-[#1e1b4b] hover:bg-[#2e2b5b] text-white rounded-md px-6 h-9"
+            >
+              {createPlan.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "+ Add"}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Content Area */}
@@ -52,7 +86,7 @@ export default function AnnualWorkPlanPage() {
           </div>
           
           <h2 className="text-lg font-semibold text-[#1e1b4b] mb-3">
-            Create an annual work plan for {currentYear}
+            Create an annual work plan for {selectedYear}
           </h2>
           
           <p className="text-slate-500 text-sm max-w-sm mb-8">
@@ -84,15 +118,42 @@ export default function AnnualWorkPlanPage() {
             <div>
               <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-blue-600" />
-                {currentYear} Work Plan
+                {selectedYear} Work Plan
               </h2>
               <div className="text-sm font-medium text-slate-500 mt-1">
                 {activePlan.items?.length || 0} items scheduled
               </div>
             </div>
-            <Button onClick={() => setIsAddModalOpen(true)} className="bg-[#1e1b4b] hover:bg-[#2e2b5b] text-white h-9">
-              + Add Item
-            </Button>
+            <div className="flex items-center gap-2">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="h-9 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200">
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Plan
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete the {selectedYear} annual work plan and all of its items. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={() => deletePlan.mutate(activePlan.id)}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      {deletePlan.isPending ? "Deleting..." : "Delete Plan"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              <Button onClick={() => setIsAddModalOpen(true)} className="bg-[#1e1b4b] hover:bg-[#2e2b5b] text-white h-9">
+                + Add Item
+              </Button>
+            </div>
           </div>
           
           {activePlan.items?.length > 0 ? (
@@ -108,7 +169,7 @@ export default function AnnualWorkPlanPage() {
                 {activePlan.items.map((item: any) => (
                   <tr key={item.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 font-medium text-slate-700">
-                      {new Date(currentYear, item.month - 1).toLocaleString('default', { month: 'long' })}
+                      {new Date(selectedYear, item.month - 1).toLocaleString('default', { month: 'long' })}
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-medium text-slate-800">{item.title}</div>
@@ -140,7 +201,7 @@ export default function AnnualWorkPlanPage() {
           open={isAddModalOpen}
           onOpenChange={setIsAddModalOpen}
           organisationId={orgId}
-          year={currentYear}
+          year={selectedYear}
           planId={activePlan.id}
         />
       )}
