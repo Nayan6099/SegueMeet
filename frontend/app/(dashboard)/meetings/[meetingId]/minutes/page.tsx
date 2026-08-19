@@ -209,7 +209,7 @@ export default function MinutesPage() {
             {meeting.title} — Minutes
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {new Date(meeting.scheduledStartDate).toLocaleString()} - {new Date(meeting.scheduledEndDate).toLocaleTimeString()}
+            {meeting.date} ({meeting.startTime} - {meeting.endTime})
           </p>
         </div>
         <Badge variant={status === "confirmed" ? "default" : "secondary"}>
@@ -317,28 +317,30 @@ export default function MinutesPage() {
         )}
         {status === "in_review" && (
           <>
+            {isEditor && (
+              <>
+                <button
+                  onClick={confirmMinutes}
+                  className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+                >
+                  Confirm minutes
+                </button>
+                <button
+                  onClick={rollBack}
+                  className="rounded-md px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+                >
+                  Roll back to draft
+                </button>
+              </>
+            )}
             <button
-              onClick={confirmMinutes}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+              onClick={() => signMinutesCall.mutate()}
+              disabled={signMinutesCall.isPending}
+              className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
             >
-              Confirm minutes
-            </button>
-            <button
-              onClick={rollBack}
-              className="rounded-md px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
-            >
-              Roll back to draft
+              {signMinutesCall.isPending ? "Signing..." : "Sign Document"}
             </button>
           </>
-        )}
-        {status === "confirmed" && (
-          <button
-            onClick={() => signMinutesCall.mutate()}
-            disabled={signMinutesCall.isPending}
-            className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
-          >
-            {signMinutesCall.isPending ? "Signing..." : "Sign Document"}
-          </button>
         )}
         <button
           onClick={() => router.push("/meetings")}

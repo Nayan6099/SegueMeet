@@ -28,11 +28,11 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
   const [startHour, setStartHour] = useState("10");
   const [startMin, setStartMin] = useState("00");
   const [startAmPm, setStartAmPm] = useState("am");
-  
+
   const [endHour, setEndHour] = useState("12");
   const [endMin, setEndMin] = useState("00");
   const [endAmPm, setEndAmPm] = useState("pm");
-  
+
   const [locationId, setLocationId] = useState("");
   const [sendNotice, setSendNotice] = useState(false);
 
@@ -76,7 +76,7 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
 
   const getDurationString = () => {
     if (!startHour || !endHour) return "0 hrs";
-    
+
     let sh = parseInt(startHour);
     if (startAmPm === "pm" && sh < 12) sh += 12;
     if (startAmPm === "am" && sh === 12) sh = 0;
@@ -92,7 +92,7 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
 
     const h = Math.floor(diff / 60);
     const m = diff % 60;
-    
+
     if (h === 0) return `${m} mins`;
     if (m === 0) return `${h} hrs`;
     return `${h} hrs ${m} mins`;
@@ -160,7 +160,7 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
           <div className="p-6">
             <DialogHeader className="mb-6 flex flex-row items-center gap-2">
               <div className="bg-emerald-100 p-2 rounded-md text-emerald-600">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
               </div>
               <DialogTitle className="text-xl font-bold">Add a meeting</DialogTitle>
             </DialogHeader>
@@ -169,10 +169,10 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
               {/* Title */}
               <div className="space-y-2">
                 <Label className="text-xs text-slate-500 font-medium">Title*</Label>
-                <Input 
-                  value={title} 
+                <Input
+                  value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="border-0 border-b border-slate-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-blue-600 shadow-none" 
+                  className="border-0 border-b border-slate-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-blue-600 shadow-none"
                 />
               </div>
 
@@ -180,14 +180,14 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <Label className="text-xs text-slate-500 font-medium">Date*</Label>
-                  <Input 
-                    type="date" 
+                  <Input
+                    type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="border-0 border-b border-slate-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-blue-600 shadow-none text-slate-800" 
+                    className="border-0 border-b border-slate-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-blue-600 shadow-none text-slate-800"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label className="text-xs text-slate-500 font-medium">Start Time*</Label>
                   <div className="flex items-center border-b border-slate-300">
@@ -241,17 +241,17 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
                     ))}
                   </SelectContent>
                 </Select>
-                
+
                 {selectedLocation && (
                   <div className="text-sm text-slate-600 mt-2">
                     <p>{selectedLocation.address}</p>
                     <p>Time zone: {selectedLocation.timeZone}</p>
                   </div>
                 )}
-                
-                <Button 
-                  type="button" 
-                  variant="ghost" 
+
+                <Button
+                  type="button"
+                  variant="ghost"
                   className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-0 h-auto mt-4 font-medium flex items-center gap-1"
                   onClick={() => setIsLocationOpen(true)}
                 >
@@ -263,11 +263,11 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
               {/* Video Link */}
               <div className="space-y-2 pt-2">
                 <Label className="text-xs text-slate-500 font-medium">Video Meeting Link (Optional)</Label>
-                <Input 
-                  value={videoLink} 
+                <Input
+                  value={videoLink}
                   onChange={(e) => setVideoLink(e.target.value)}
                   placeholder="e.g. https://meet.google.com/xyz"
-                  className="border-0 border-b border-slate-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-blue-600 shadow-none text-slate-800" 
+                  className="border-0 border-b border-slate-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-blue-600 shadow-none text-slate-800"
                 />
               </div>
 
@@ -277,8 +277,8 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
                 <div className="border border-slate-200 rounded-md p-3 max-h-40 overflow-y-auto space-y-2 bg-slate-50">
                   {members.map((member: any) => (
                     <div key={member.user.id} className="flex items-center space-x-2">
-                      <Checkbox 
-                        id={`member-${member.user.id}`} 
+                      <Checkbox
+                        id={`member-${member.user.id}`}
                         checked={attendeeIds.includes(member.user.id)}
                         onCheckedChange={(checked) => {
                           if (checked) {
@@ -306,13 +306,13 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
               </div>
             </div>
           </div>
-          
+
           <DialogFooter className="bg-slate-50 p-4 border-t border-slate-100 flex justify-end gap-2">
             <Button variant="outline" onClick={() => setIsOpen(false)} className="bg-white">
               Cancel
             </Button>
-            <Button 
-              onClick={() => createMeetingMutation.mutate()} 
+            <Button
+              onClick={() => createMeetingMutation.mutate()}
               disabled={createMeetingMutation.isPending || !title || !date}
               className="bg-emerald-500 hover:bg-emerald-600 text-white"
             >
@@ -329,7 +329,7 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
           <div className="p-6">
             <DialogHeader className="mb-6 flex flex-row items-center gap-2">
               <div className="bg-emerald-100 p-2 rounded-full text-emerald-600">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>
               </div>
               <DialogTitle className="text-lg font-bold">Add a Meeting Location</DialogTitle>
             </DialogHeader>
@@ -337,19 +337,19 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
             <div className="space-y-6">
               <div className="space-y-2">
                 <Label className="text-xs text-slate-500 font-medium">Name*</Label>
-                <Input 
+                <Input
                   value={locName}
                   onChange={(e) => setLocName(e.target.value)}
-                  className="border-0 border-b border-slate-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-blue-600 shadow-none text-slate-800" 
+                  className="border-0 border-b border-slate-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-blue-600 shadow-none text-slate-800"
                 />
               </div>
 
               <div className="space-y-2">
                 <Label className="text-xs text-slate-500 font-medium">Address*</Label>
-                <Input 
+                <Input
                   value={locAddress}
                   onChange={(e) => setLocAddress(e.target.value)}
-                  className="border-0 border-b border-slate-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-blue-600 shadow-none text-slate-800" 
+                  className="border-0 border-b border-slate-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-blue-600 shadow-none text-slate-800"
                 />
               </div>
 
@@ -381,8 +381,8 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
             <Button variant="outline" onClick={() => setIsLocationOpen(false)} className="bg-white">
               Cancel
             </Button>
-            <Button 
-              onClick={() => createLocationMutation.mutate()} 
+            <Button
+              onClick={() => createLocationMutation.mutate()}
               disabled={createLocationMutation.isPending || !locName || !locAddress}
               className="bg-emerald-500 hover:bg-emerald-600 text-white"
             >
