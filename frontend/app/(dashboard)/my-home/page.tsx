@@ -45,6 +45,18 @@ export default function MyHomePage() {
     enabled: !!orgId,
   });
 
+  const { data: pendingSignatures = [], isLoading: loadingSignatures } = useQuery({
+    queryKey: ["pending-signatures", orgId],
+    queryFn: async () => {
+      if (!orgId) return [];
+      const res = await api.get(`/minutes/pending-signatures`, {
+        params: { organisationId: orgId }
+      });
+      return res.data.data || [];
+    },
+    enabled: !!orgId,
+  });
+
   const today = new Date().toISOString().split('T')[0];
   const upcomingMeetings = meetings.filter((m: any) => m.date >= today);
   const pastMeetings = meetings.filter((m: any) => m.date < today);
@@ -197,6 +209,11 @@ export default function MyHomePage() {
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-semibold text-slate-700"
             >
               Signature Required
+              {pendingSignatures.length > 0 && (
+                <Badge variant="destructive" className="ml-2 rounded-full px-2">
+                  {pendingSignatures.length}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger 
               value="actions"
@@ -208,12 +225,35 @@ export default function MyHomePage() {
         </div>
 
         <TabsContent value="signature" className="mt-0">
-          <div className="border rounded-xl bg-white p-16 flex flex-col items-center justify-center text-center shadow-sm">
-            <div className="bg-gray-50 p-4 rounded-2xl mb-4">
-              <PenTool className="w-8 h-8 text-slate-400" />
+          {loadingSignatures ? (
+             <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>
+          ) : pendingSignatures.length === 0 ? (
+            <div className="border rounded-xl bg-white p-16 flex flex-col items-center justify-center text-center shadow-sm">
+              <div className="bg-gray-50 p-4 rounded-2xl mb-4">
+                <PenTool className="w-8 h-8 text-slate-400" />
+              </div>
+              <p className="text-slate-600 text-sm">No documents are waiting for you to sign.</p>
             </div>
-            <p className="text-slate-600 text-sm">No documents are waiting for you to sign.</p>
-          </div>
+          ) : (
+            <div className="space-y-4">
+              {pendingSignatures.map((min: any) => (
+                <Link key={min.id} href={`/meetings/${min.meeting.id}/minutes`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between border rounded-xl p-4 bg-white shadow-sm hover:shadow-md transition-shadow group cursor-pointer gap-4 sm:gap-0">
+                    <div className="flex items-start sm:items-center gap-3">
+                      <div className="p-2 bg-purple-50 text-purple-600 rounded-lg shrink-0">
+                        <PenTool className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium text-slate-800 break-words">{min.meeting.title} - Minutes</p>
+                        <p className="text-xs text-slate-500 mt-1">Date: {min.meeting.date}</p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="bg-purple-50 text-purple-700 hover:bg-purple-50 self-start sm:self-auto shrink-0">Sign now</Badge>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="actions" className="mt-0">

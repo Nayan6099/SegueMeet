@@ -457,6 +457,43 @@ export class MinutesService {
   // ─────────────────────────────────────────────
 
   /**
+   * GET /minutes/pending-signatures
+   * Fetch all minutes across an organisation that require the user's signature
+   */
+  async getPendingSignatures(organisationId: string, user: AuthenticatedUser) {
+    await this.organisationsService.requireMembership(organisationId, user.id);
+
+    try {
+      const pendingMinutes = await this.prisma.minutes.findMany({
+        where: {
+          meeting: {
+            organisationId,
+            attendees: {
+              some: { userId: user.id }
+            }
+          },
+          status: 'IN_REVIEW',
+          signatures: {
+            none: { signerId: user.id }
+          }
+        },
+        include: {
+          meeting: { select: { id: true, title: true, date: true } }
+        },
+        orderBy: { updatedAt: 'desc' }
+      });
+
+      return { data: pendingMinutes, total: pendingMinutes.length };
+    } catch (error) {
+      this.logger.error(
+        `Failed to fetch pending signatures for organisation ${organisationId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw new InternalServerErrorException('Failed to fetch pending signatures');
+    }
+  }
+
+  /**
    * GET /minutes/actions
    * Fetch all action items across all meetings for an organisation
    */

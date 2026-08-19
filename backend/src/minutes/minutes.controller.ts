@@ -95,6 +95,21 @@ export class MinutesController {
   // ─────────────────────────────────────────────
 
   /**
+   * GET /minutes/pending-signatures
+   * Fetch all minutes across an organisation that require the user's signature.
+   */
+  @Get('minutes/pending-signatures')
+  getPendingSignatures(
+    @Query('organisationId') organisationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!organisationId) {
+      throw new BadRequestException('organisationId query parameter is required');
+    }
+    return this.minutesService.getPendingSignatures(organisationId, user);
+  }
+
+  /**
    * GET /minutes/actions
    * Fetch all action items globally for an organisation.
    */
