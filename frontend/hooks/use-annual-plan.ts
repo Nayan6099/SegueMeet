@@ -10,7 +10,7 @@ export function useGetAnnualPlans(organisationId: string | undefined, year: numb
       const res = await api.get(`/annual-plans`, {
         params: { organisationId, year },
       });
-      return res.data;
+      return res.data.data || res.data || [];
     },
     enabled: !!organisationId,
   });
