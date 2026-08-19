@@ -23,7 +23,7 @@ export class MailService {
       if (videoLink) {
         htmlContent += `<p><strong>Video Link:</strong> <a href="${videoLink}">${videoLink}</a></p>`;
       }
-      
+
       if (location) {
         htmlContent += `<p><strong>Location:</strong> ${location}</p>`;
       }
@@ -41,7 +41,7 @@ export class MailService {
         this.logger.error(`Failed to send email to ${to} via Resend: ${error.message}`);
         return { success: false, error };
       }
-
+      console.log(data);
       this.logger.log(`Meeting Invite Email Sent to ${to}! via Resend (ID: ${data?.id})`);
       return { success: true, messageId: data?.id };
     } catch (error: any) {

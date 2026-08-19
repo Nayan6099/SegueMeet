@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Tent, Loader2, Users } from "lucide-react";
+import { Tent, Loader2, Users, Settings2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { EditCommitteeModal } from "@/components/committees/edit-committee-modal";
 
 export default function CommitteesPage() {
   const { user } = useAuth();
@@ -28,6 +29,8 @@ export default function CommitteesPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [newCommitteeName, setNewCommitteeName] = useState("");
   const [newCommitteeDesc, setNewCommitteeDesc] = useState("");
+
+  const [editingCommittee, setEditingCommittee] = useState<any>(null);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,17 +115,41 @@ export default function CommitteesPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {committees.map((committee: any) => (
-            <div key={committee.id} className="border border-slate-200 rounded-xl bg-white p-6 shadow-sm hover:shadow-md transition-shadow">
-              <h3 className="font-semibold text-lg text-slate-800">{committee.name}</h3>
+            <div 
+              key={committee.id} 
+              className="group border border-slate-200 rounded-xl bg-white p-6 shadow-sm hover:shadow-md transition-all hover:border-slate-300 relative"
+            >
+              <div className="flex items-start justify-between">
+                <h3 className="font-semibold text-lg text-slate-800 pr-8">{committee.name}</h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-4 right-4 h-8 w-8 text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => setEditingCommittee(committee)}
+                >
+                  <Settings2 className="w-4 h-4" />
+                </Button>
+              </div>
               {committee.description && <p className="text-slate-500 text-sm mt-2 line-clamp-2">{committee.description}</p>}
               
               <div className="mt-6 flex items-center gap-2 text-slate-600 text-sm">
                 <Users className="w-4 h-4" />
-                <span>{committee.members.length} member{committee.members.length === 1 ? '' : 's'}</span>
+                <span>{committee.members?.length || 0} member{(committee.members?.length || 0) === 1 ? '' : 's'}</span>
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {orgId && (
+        <EditCommitteeModal
+          isOpen={!!editingCommittee}
+          onOpenChange={(open) => {
+            if (!open) setEditingCommittee(null);
+          }}
+          committee={editingCommittee}
+          organisationId={orgId}
+        />
       )}
     </div>
   );
