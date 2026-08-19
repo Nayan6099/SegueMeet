@@ -112,7 +112,7 @@ export class AgendaService {
 
       if (isGuest) {
         // Filter sections and items
-        const newSections = meetingData.sections.map(section => {
+        const newSections = meetingData.agendaSections.map(section => {
           section.items = section.items.filter(item => 
             item.accessRules.some(access => access.memberId === membership.id)
           );
@@ -121,7 +121,7 @@ export class AgendaService {
         
         return {
           ...meetingData,
-          sections: newSections
+          agendaSections: newSections
         };
       }
 
