@@ -22,8 +22,6 @@ import { InterestsModule } from './interests/interests.module';
 import { MailModule } from './mail/mail.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { ScheduleModule } from '@nestjs/schedule';
-import { APP_GUARD } from '@nestjs/core';
-import { TenantGuard } from './common/guards/tenant.guard';
 
 @Module({
   imports: [
@@ -96,6 +94,6 @@ import { TenantGuard } from './common/guards/tenant.guard';
     AnalyticsModule,
   ],
   controllers: [AppController],
-  providers: [AppService, { provide: APP_GUARD, useClass: TenantGuard }],
+  providers: [AppService],
 })
 export class AppModule {}
