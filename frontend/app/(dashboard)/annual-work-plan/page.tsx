@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ClipboardList, ExternalLink, FileUp, PlusSquare, Loader2, Calendar, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
-import { useGetAnnualPlans, useCreateAnnualPlan, useDeleteAnnualPlan, useCreatePlanItemsBulk } from "@/hooks/use-annual-plan";
+import { useGetAnnualPlans, useCreateAnnualPlan, useDeleteAnnualPlan, useCreatePlanItemsBulk, useDeletePlanItem } from "@/hooks/use-annual-plan";
 import { AddItemModal } from "@/components/annual-plan/add-item-modal";
 import { useState, useRef } from "react";
 import {
@@ -38,11 +38,13 @@ export default function AnnualWorkPlanPage() {
   const deletePlan = useDeleteAnnualPlan(orgId, selectedYear);
   const createBulk = useCreatePlanItemsBulk(orgId, selectedYear);
   
+  const activePlan = plans[0];
+  const deletePlanItem = useDeletePlanItem(orgId, selectedYear, activePlan?.id || "");
+  
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  const activePlan = plans[0];
   const yearOptions = [currentRealYear - 1, currentRealYear, currentRealYear + 1, currentRealYear + 2];
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -243,7 +245,7 @@ export default function AnnualWorkPlanPage() {
                 <AlertDialogTrigger asChild>
                   <Button variant="outline" className="h-9 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200">
                     <Trash2 className="w-4 h-4 mr-2" />
-                    Delete Plan
+                    Reset Entire Plan
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -259,7 +261,7 @@ export default function AnnualWorkPlanPage() {
                       onClick={() => deletePlan.mutate(activePlan.id)}
                       className="bg-red-600 hover:bg-red-700"
                     >
-                      {deletePlan.isPending ? "Deleting..." : "Delete Plan"}
+                      {deletePlan.isPending ? "Resetting..." : "Reset Plan"}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -277,6 +279,7 @@ export default function AnnualWorkPlanPage() {
                   <th className="px-6 py-3 font-medium">Month</th>
                   <th className="px-6 py-3 font-medium">Title</th>
                   <th className="px-6 py-3 font-medium">Status</th>
+                  <th className="px-6 py-3 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -297,6 +300,17 @@ export default function AnnualWorkPlanPage() {
                       }`}>
                         {item.status.replace('_', ' ')}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deletePlanItem.mutate(item.id)}
+                        disabled={deletePlanItem.isPending}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </td>
                   </tr>
                 ))}
