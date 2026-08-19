@@ -62,9 +62,9 @@ export default function MeetingsPage() {
     );
   }
 
-  const today = new Date().toISOString();
-  const upcoming = meetings.filter((m: any) => m.scheduledStartDate >= today);
-  const past = meetings.filter((m: any) => m.scheduledStartDate < today);
+  const today = new Date().toISOString().split('T')[0];
+  const upcoming = meetings.filter((m: any) => m.date >= today);
+  const past = meetings.filter((m: any) => m.date < today);
 
   return (
     <div>
@@ -130,7 +130,7 @@ function MeetingTable({ meetings }: { meetings: any[] }) {
                 </Link>
               </TableCell>
               <TableCell>
-                {new Date(m.scheduledStartDate).toLocaleString()}
+                {new Date(m.date).toLocaleDateString()} {m.startTime}
               </TableCell>
               <TableCell>{m.location || 'N/A'}</TableCell>
               <TableCell>{agendaBadge(m.agenda?.status || 'draft')}</TableCell>

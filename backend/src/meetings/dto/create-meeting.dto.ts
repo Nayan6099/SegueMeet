@@ -58,4 +58,7 @@ export class CreateMeetingDto {
   @IsOptional()
   @IsEnum(MeetingStatus)
   status?: MeetingStatus;
+
+  @IsOptional()
+  attendeeIds?: string[];
 }

@@ -30,7 +30,12 @@ export default function LoginPage() {
       login(res.data.accessToken, res.data.user);
       router.push("/my-home");
     } catch (err: any) {
-      setError(err.response?.data?.message || "Invalid credentials");
+      if (!err.response) {
+        setError("Unable to connect to the server. Please try again later.");
+      } else {
+        const msg = err.response?.data?.message;
+        setError(msg || "Invalid credentials");
+      }
     } finally {
       setIsLoading(false);
     }

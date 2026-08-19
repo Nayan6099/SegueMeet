@@ -74,11 +74,15 @@ export default function SignupPage() {
       login(res.data.accessToken, res.data.user);
       router.push("/welcome");
     } catch (err: any) {
-      const msg = err.response?.data?.message;
-      if (Array.isArray(msg)) {
-        setError(msg.join(". "));
+      if (!err.response) {
+        setError("Unable to connect to the server. Please try again later.");
       } else {
-        setError(msg || "Failed to register");
+        const msg = err.response?.data?.message;
+        if (Array.isArray(msg)) {
+          setError(msg.join(". "));
+        } else {
+          setError(msg || "Failed to register");
+        }
       }
     } finally {
       setIsLoading(false);

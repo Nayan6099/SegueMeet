@@ -59,12 +59,13 @@ const mainNav = [
 
 export function SidebarInner({ isCollapsed = false, onToggleCollapse }: { isCollapsed?: boolean; onToggleCollapse?: () => void }) {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, setActiveOrgId } = useAuth();
   
   const [isAddBoardOpen, setIsAddBoardOpen] = useState(false);
   const [isAddCommitteeOpen, setIsAddCommitteeOpen] = useState(false);
   const [boardName, setBoardName] = useState("");
   const [committeeName, setCommitteeName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const currentOrg = user?.memberships?.[0]?.organisation;
@@ -163,34 +164,56 @@ export function SidebarInner({ isCollapsed = false, onToggleCollapse }: { isColl
                 <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                 <input 
                   type="text" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.stopPropagation()}
                   placeholder="Search boards & committees.." 
                   className="w-full pl-8 pr-3 py-1.5 text-sm bg-transparent border-none outline-none placeholder:text-slate-400 text-slate-800"
                 />
               </div>
               
-              <DropdownMenuItem className="py-2.5 px-3 rounded-lg bg-slate-50 mb-1 cursor-pointer outline-none">
-                <div className="flex items-center gap-3">
-                  <div className="bg-slate-200 rounded-md shrink-0 w-6 h-6"></div>
-                  <span className="font-medium text-slate-800 text-[14px]">{currentOrg?.name || "My Organisation"}</span>
-                </div>
-              </DropdownMenuItem>
+              {user?.memberships?.map((membership: any) => {
+                const org = membership.organisation;
+                if (!org) return null;
+                if (searchQuery && !org.name.toLowerCase().includes(searchQuery.toLowerCase())) return null;
+
+                return (
+                  <DropdownMenuItem 
+                    key={org.id}
+                    onClick={() => {
+                      if (setActiveOrgId) {
+                        setActiveOrgId(org.id);
+                        window.location.reload(); // Quickest way to refetch all queries for the new org
+                      }
+                    }}
+                    className="py-2.5 px-3 rounded-lg hover:bg-slate-50 focus:bg-slate-50 mb-1 cursor-pointer outline-none"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="bg-slate-200 rounded-md shrink-0 w-6 h-6 flex items-center justify-center text-xs font-bold text-slate-600">
+                        {org.name.charAt(0)}
+                      </div>
+                      <span className="font-medium text-slate-800 text-[14px]">{org.name}</span>
+                    </div>
+                  </DropdownMenuItem>
+                );
+              })}
               
               <DropdownMenuSeparator className="my-2 bg-slate-100" />
               
               <DropdownMenuItem 
-                onSelect={(e) => { e.preventDefault(); setIsAddBoardOpen(true); }}
-                className="py-2.5 px-3 rounded-lg cursor-pointer text-slate-600 focus:text-slate-900 focus:bg-slate-50 outline-none"
+                onClick={() => setTimeout(() => setIsAddBoardOpen(true), 0)}
+                className="py-2.5 px-3 rounded-lg cursor-pointer text-slate-600 focus:text-slate-900 focus:bg-slate-50 outline-none flex items-center"
               >
-                <div className="flex items-center border border-slate-300 rounded p-0.5 mr-3">
+                <div className="flex items-center border border-slate-300 rounded p-0.5 mr-3 shrink-0">
                   <Plus className="w-3 h-3 text-slate-500" />
                 </div>
                 <span className="font-medium text-[14px]">Add Board</span>
               </DropdownMenuItem>
               <DropdownMenuItem 
-                onSelect={(e) => { e.preventDefault(); setIsAddCommitteeOpen(true); }}
-                className="py-2.5 px-3 rounded-lg cursor-pointer text-slate-600 focus:text-slate-900 focus:bg-slate-50 outline-none"
+                onClick={() => setTimeout(() => setIsAddCommitteeOpen(true), 0)}
+                className="py-2.5 px-3 rounded-lg cursor-pointer text-slate-600 focus:text-slate-900 focus:bg-slate-50 outline-none flex items-center"
               >
-                <div className="flex items-center border border-slate-300 rounded p-0.5 mr-3">
+                <div className="flex items-center border border-slate-300 rounded p-0.5 mr-3 shrink-0">
                   <Plus className="w-3 h-3 text-slate-500" />
                 </div>
                 <span className="font-medium text-[14px]">Add Committee</span>

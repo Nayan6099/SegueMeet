@@ -22,6 +22,7 @@ import { api } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AgendaSection, AgendaItem } from "@/lib/types";
 import { Loader2, Trash2, UserPlus } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 const purposeLabels: Record<AgendaItem["purpose"], string> = {
   none: "—",
@@ -43,6 +44,11 @@ export default function AgendaBuilderPage() {
       return res.data;
     },
   });
+
+  const { user } = useAuth();
+  const orgId = data?.organisationId;
+  const userRole = user?.memberships?.find((m: any) => m.organisationId === orgId)?.role;
+  const isEditor = ["BOARD_ADMIN", "CHAIR", "SECRETARY"].includes(userRole || "");
 
   // Mutations
   const updateStatus = useMutation({
@@ -128,6 +134,7 @@ export default function AgendaBuilderPage() {
   const meeting = data;
   const sections = data.agendaSections || [];
   const published = meeting.agendaStatus === "PUBLISHED";
+  const disabled = published || !isEditor;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -145,10 +152,11 @@ export default function AgendaBuilderPage() {
         </Badge>
       </div>
 
-      {published && (
+      {(published || !isEditor) && (
         <p className="mt-4 rounded-md border border-border bg-muted/50 p-3 text-sm text-muted-foreground">
-          This agenda is published — structural edits are locked. Roll back
-          to draft to make changes.
+          {published 
+            ? "This agenda is published — structural edits are locked." 
+            : "You do not have permission to edit this agenda."}
         </p>
       )}
 
@@ -160,8 +168,9 @@ export default function AgendaBuilderPage() {
           >
             <div className="flex items-center gap-2 mb-3">
               <Input
+                key={section.title}
                 defaultValue={section.title}
-                disabled={published}
+                disabled={disabled}
                 onBlur={(e) => {
                   if (e.target.value !== section.title) {
                     updateSectionTitle.mutate({ sectionId: section.id, title: e.target.value });
@@ -169,7 +178,7 @@ export default function AgendaBuilderPage() {
                 }}
                 className="font-medium"
               />
-              {!published && (
+              {!disabled && (
                 <button 
                   onClick={() => deleteSection.mutate(section.id)}
                   className="p-2 text-muted-foreground hover:text-destructive"
@@ -187,8 +196,9 @@ export default function AgendaBuilderPage() {
                 >
                   <Input
                     className="col-span-4"
+                    key={item.title}
                     defaultValue={item.title}
-                    disabled={published}
+                    disabled={disabled}
                     onBlur={(e) => {
                       if (e.target.value !== item.title) {
                         updateItemCall.mutate({ itemId: item.id, patch: { title: e.target.value } });
@@ -198,8 +208,9 @@ export default function AgendaBuilderPage() {
                   <Input
                     className="col-span-3"
                     placeholder="Presenter"
+                    key={item.presenter || "none"}
                     defaultValue={item.presenter || ""}
-                    disabled={published}
+                    disabled={disabled}
                     onBlur={(e) => {
                       if (e.target.value !== item.presenter) {
                         updateItemCall.mutate({ itemId: item.id, patch: { presenter: e.target.value } });
@@ -208,7 +219,7 @@ export default function AgendaBuilderPage() {
                   />
                   <Select
                     value={item.purpose?.toLowerCase()}
-                    disabled={published}
+                    disabled={disabled}
                     onValueChange={(v) => {
                       updateItemCall.mutate({ itemId: item.id, patch: { purpose: v } });
                     }}
@@ -227,8 +238,9 @@ export default function AgendaBuilderPage() {
                   <Input
                     type="number"
                     className="col-span-2"
+                    key={item.durationMinutes}
                     defaultValue={item.durationMinutes}
-                    disabled={published}
+                    disabled={disabled}
                     onBlur={(e) => {
                       const val = Number(e.target.value);
                       if (val !== item.durationMinutes) {
@@ -236,7 +248,7 @@ export default function AgendaBuilderPage() {
                       }
                     }}
                   />
-                  {!published && (
+                  {!disabled && (
                     <div className="col-span-1 flex items-center justify-end gap-2">
                       <Dialog>
                         <DialogTrigger>
@@ -284,7 +296,7 @@ export default function AgendaBuilderPage() {
               ))}
             </div>
 
-            {!published && (
+            {!disabled && (
               <button
                 onClick={() => createItem.mutate(section.id)}
                 className="mt-3 text-sm font-medium text-primary hover:underline"
@@ -295,7 +307,7 @@ export default function AgendaBuilderPage() {
           </div>
         ))}
 
-        {!published && (
+        {!disabled && (
           <button
             onClick={() => createSection.mutate("New Section")}
             className="rounded-md border border-dashed border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"

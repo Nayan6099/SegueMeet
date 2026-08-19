@@ -9,6 +9,7 @@ import { OrganisationsService } from '../organisations/organisations.service';
 import { CreateCommitteeDto } from './dto/create-committee.dto';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { AuditService } from '../audit/audit.service';
+import { CAN_MANAGE_COMMITTEES } from '../common/auth/roles.constants';
 
 @Injectable()
 export class CommitteesService {
@@ -43,11 +44,11 @@ export class CommitteesService {
   }
 
   async createCommittee(dto: CreateCommitteeDto, user: AuthenticatedUser) {
-    const membership = await this.organisationsService.requireMembership(dto.organisationId, user.id);
-
-    if (!['BOARD_ADMIN', 'CHAIR', 'SECRETARY'].includes(membership.role)) {
-      throw new ForbiddenException('Only Administrators can perform this action');
-    }
+    await this.organisationsService.requireRole(
+      dto.organisationId,
+      user.id,
+      CAN_MANAGE_COMMITTEES
+    );
 
     try {
       const committee = await this.prisma.committee.create({

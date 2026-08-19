@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum } from 'class-validator';
+import { IsEmail, IsEnum, IsString, IsNotEmpty } from 'class-validator';
 import { OrganisationRole } from '@prisma/client';
 
 export class AddMemberDto {
@@ -8,6 +8,13 @@ export class AddMemberDto {
    */
   @IsEmail({}, { message: 'Please provide a valid email address' })
   email: string;
+
+  /**
+   * The name of the user. Used to create the user on the fly if they don't exist.
+   */
+  @IsString()
+  @IsNotEmpty()
+  name: string;
 
   /**
    * The role to assign. Must be a valid OrganisationRole enum value.

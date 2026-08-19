@@ -10,6 +10,9 @@ import PDFDocument from 'pdfkit';
 import { PrismaService } from '../common/database/prisma.service';
 import { OrganisationsService } from '../organisations/organisations.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
+import { v2 as cloudinary } from 'cloudinary';
+import * as streamifier from 'streamifier';
+import { CAN_MANAGE_BOARD_PACK } from '../common/auth/roles.constants';
 
 // ─────────────────────────────────────────────
 // Types
@@ -117,7 +120,13 @@ export class BoardPackService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly organisationsService: OrganisationsService,
-  ) {}
+  ) {
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+  }
 
   // ─────────────────────────────────────────────
   // PRIVATE: resolve and authorise
@@ -270,6 +279,65 @@ export class BoardPackService {
         error instanceof Error ? error.stack : String(error),
       );
       throw new InternalServerErrorException('Failed to generate PDF');
+    }
+  }
+
+  async publishBoardPack(meetingId: string, user: AuthenticatedUser) {
+    const meeting = await this.authorisedMeeting(meetingId, user.id);
+    await this.organisationsService.requireRole(
+      meeting.organisationId,
+      user.id,
+      CAN_MANAGE_BOARD_PACK
+    );
+
+    const data = await this.getBoardPackData(meetingId, user);
+    
+    // Check if there is already a published version
+    const latestBoardPack = await this.prisma.boardPack.findFirst({
+      where: { meetingId },
+      orderBy: { version: 'desc' },
+    });
+    
+    const version = latestBoardPack ? latestBoardPack.version + 1 : 1;
+
+    try {
+      const buffer = await this.buildPdfBuffer(data);
+
+      return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: 'seguemeet_board_packs',
+            resource_type: 'raw',
+            format: 'pdf',
+          },
+          async (error, result) => {
+            if (error || !result) {
+              this.logger.error('Cloudinary upload failed for board pack', error);
+              return reject(new InternalServerErrorException('Failed to upload board pack to cloud'));
+            }
+
+            try {
+              const boardPack = await this.prisma.boardPack.create({
+                data: {
+                  organisationId: meeting.organisationId,
+                  meetingId,
+                  status: 'PUBLISHED',
+                  version,
+                  storagePath: result.secure_url,
+                  publishedAt: new Date(),
+                },
+              });
+              resolve(boardPack);
+            } catch (dbError) {
+              reject(dbError);
+            }
+          }
+        );
+        streamifier.createReadStream(buffer).pipe(uploadStream);
+      });
+    } catch (error) {
+      this.logger.error(`Failed to publish Board Pack for meeting ${meetingId}`, error);
+      throw new InternalServerErrorException('Failed to publish Board Pack');
     }
   }
 

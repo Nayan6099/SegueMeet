@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers/query-provider";
+import DebugPanelWrapper from "@/components/DebugPanelWrapper";
+// DebugPanel rendered via DebugPanelWrapper client component
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,6 +28,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <Providers>{children}</Providers>
+        {process.env.NODE_ENV === 'development' && <DebugPanelWrapper />}
       </body>
     </html>
   );

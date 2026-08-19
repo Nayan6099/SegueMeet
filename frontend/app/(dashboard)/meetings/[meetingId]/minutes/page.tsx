@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth-context";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,6 +36,7 @@ export default function MinutesPage() {
   const params = useParams<{ meetingId: string }>();
   const meetingId = params.meetingId;
   const router = useRouter();
+  const { user } = useAuth();
   const { data: agendaData, isLoading: loadingAgenda } = useGetAgenda(meetingId);
   const { data: minutes, isLoading: loadingMinutes } = useGetMinutes(meetingId);
 
@@ -42,14 +44,18 @@ export default function MinutesPage() {
   const [showChecklist, setShowChecklist] = useState(false);
   const queryClient = useQueryClient();
 
+  const orgId = agendaData?.organisationId;
+  const userRole = user?.memberships?.find((m: any) => m.organisationId === orgId)?.role;
+  const isEditor = ["BOARD_ADMIN", "CHAIR", "SECRETARY"].includes(userRole || "");
+
   const { data: members = [] } = useQuery({
-    queryKey: ["members", agendaData?.organisationId],
+    queryKey: ["members", orgId],
     queryFn: async () => {
-      if (!agendaData?.organisationId) return [];
-      const res = await api.get(`/organisations/${agendaData.organisationId}/members`);
+      if (!orgId) return [];
+      const res = await api.get(`/organisations/${orgId}/members`);
       return res.data;
     },
-    enabled: !!agendaData?.organisationId,
+    enabled: !!orgId,
   });
 
   const createActionItem = useCreateActionItem(meetingId);
@@ -109,6 +115,7 @@ export default function MinutesPage() {
   }
 
   const locked = status === "confirmed";
+  const disabled = locked || !isEditor;
   const allItems = sections.flatMap((s: any) =>
     s.items.map((item: any) => ({ ...item, sectionTitle: s.title }))
   );
@@ -126,7 +133,6 @@ export default function MinutesPage() {
     let defaultContent = "";
 
     if (blockType === "action" && minutes?.id) {
-      // Create real action item in DB — hook returns res.data directly
       const createdItem = await createActionItem.mutateAsync(minutes.id);
       actionItemId = createdItem.id;
       defaultContent = createdItem.description || "";
@@ -154,11 +160,10 @@ export default function MinutesPage() {
       prev.map((b) => {
         if (b.id === id) {
           const updated = { ...b, ...patch };
-          // If action, fire update to backend
           if (b.blockType === "action") {
             const backendPatch: any = {};
             if (patch.content !== undefined) backendPatch.description = patch.content;
-            if (patch.actionOwner !== undefined) backendPatch.assigneeId = patch.actionOwner; // Note: assigneeId needs to be a real user ID in the future
+            if (patch.actionOwner !== undefined) backendPatch.assigneeId = patch.actionOwner;
             if (patch.actionDueDate !== undefined) backendPatch.dueDate = patch.actionDueDate || null;
             updateActionItem.mutate({ id, patch: backendPatch });
           }
@@ -246,8 +251,8 @@ export default function MinutesPage() {
         <div className="flex justify-end">
           <button
             onClick={saveContent}
-            disabled={updateMinutesCall.isPending || locked}
-            className="text-sm text-primary hover:underline"
+            disabled={updateMinutesCall.isPending || disabled}
+            className="text-sm text-primary hover:underline disabled:opacity-50"
           >
             {updateMinutesCall.isPending ? "Saving..." : "Save changes"}
           </button>
@@ -267,7 +272,7 @@ export default function MinutesPage() {
                 <MinuteBlockEditor
                   key={block.id}
                   block={block}
-                  locked={locked}
+                  locked={disabled}
                   members={members}
                   onChange={(patch) => updateBlock(block.id, patch)}
                   onRemove={() => removeBlock(block.id)}
@@ -275,7 +280,7 @@ export default function MinutesPage() {
               ))}
             </div>
 
-            {!locked && (
+            {!disabled && (
               <div className="mt-3 flex gap-2">
                 <button
                   onClick={() => addBlock(item.id, "note")}
@@ -302,7 +307,7 @@ export default function MinutesPage() {
       </div>
 
       <div className="mt-8 flex items-center gap-3">
-        {status === "draft" && (
+        {status === "draft" && !disabled && (
           <button
             onClick={finishDraft}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"

@@ -101,6 +101,22 @@ export class OrganisationsController {
   }
 
   /**
+   * PATCH /organisations/:id/members/:userId
+   *
+   * Updates an existing member's role and/or tenureEndDate.
+   * Caller must be a BOARD_ADMIN.
+   */
+  @Patch(':id/members/:userId')
+  updateMember(
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+    @Body() dto: { role?: any; tenureEndDate?: string | null },
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.organisationsService.updateMember(id, userId, dto, user);
+  }
+
+  /**
    * DELETE /organisations/:id/members/:userId
    *
    * Removes a user's membership. Caller must be a BOARD_ADMIN.

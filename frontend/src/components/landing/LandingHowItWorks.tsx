@@ -10,35 +10,35 @@ const steps = [
     description: "Pick date, time and location in seconds.",
     icon: "📅", // calendar emoji
     // placeholder image url
-    img: "https://images.unsplash.com/photo-1581093588401-63c4a8d5a2c2?auto=format&fit=crop&w=800&q=60",
+    img: "/images/create_meeting.jpg",
   },
   {
     number: 2,
     title: "Build Your Agenda",
     description: "Use ready‑made templates or craft a custom agenda.",
     icon: "✏️", // edit emoji
-    img: "https://images.unsplash.com/photo-1559526324-593bc073d938?auto=format&fit=crop&w=800&q=60",
+    img: "/images/build_agenda.jpg",
   },
   {
     number: 3,
     title: "Take Minutes",
     description: "Record decisions, attendees and action items live.",
     icon: "✅", // check circle emoji
-    img: "https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=800&q=60",
+    img: "/images/take_minutes.jpg",
   },
   {
     number: 4,
     title: "Track Actions",
     description: "Assign owners, set due dates, watch progress.",
     icon: "⏰", // clock emoji
-    img: "https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?auto=format&fit=crop&w=800&q=60",
+    img: "/images/track_actions.jpg",
   },
   {
     number: 5,
     title: "Generate Board Pack",
     description: "Export a polished PDF for stakeholders.",
     icon: "📁", // export emoji
-    img: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=800&q=60",
+    img: "/images/build_agenda.jpg",
   },
 ];
 

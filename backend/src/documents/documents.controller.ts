@@ -74,6 +74,22 @@ export class DocumentsController {
     );
   }
 
+  /**
+   * POST /documents/:id/versions
+   * Uploads a new version for an existing document.
+   */
+  @Post(':id/versions')
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(FileInterceptor('file'))
+  uploadNewVersion(
+    @Param('id') documentId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!file) throw new BadRequestException('No file provided');
+    return this.documentsService.uploadNewVersion(documentId, file, user);
+  }
+
   // ─────────────────────────────────────────────
   // FOLDERS
   // ─────────────────────────────────────────────

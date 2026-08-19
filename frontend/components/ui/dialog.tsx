@@ -8,7 +8,11 @@ import { cn } from "@/lib/utils"
 
 const Dialog = DialogPrimitive.Root
 
-function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
+function DialogTrigger({ asChild = false, ...props }: DialogPrimitive.Trigger.Props & { asChild?: boolean }) {
+  if (asChild) {
+    const { children, ...rest } = props;
+    return <DialogPrimitive.Trigger render={children as any} data-slot="dialog-trigger" {...rest} />
+  }
   return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />
 }
 

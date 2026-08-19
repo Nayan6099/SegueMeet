@@ -3,7 +3,11 @@
 import { Bell, Info, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function BoardProfileTab() {
+interface BoardProfileTabProps {
+  onManageTenure: () => void;
+}
+
+export function BoardProfileTab({ onManageTenure }: BoardProfileTabProps) {
   return (
     <div className="space-y-6">
       {/* Email Confirmation Banner */}
@@ -13,7 +17,12 @@ export function BoardProfileTab() {
           <p className="font-semibold text-slate-800">Confirm your email</p>
           <p className="text-slate-600 mt-1">
             Check inbox to confirm your email address. Didn't receive the email?{" "}
-            <button className="font-semibold underline hover:text-slate-800">Resend</button>
+            <button 
+              onClick={() => window.alert("Email verification service is coming in the next phase!")}
+              className="font-semibold underline hover:text-slate-800"
+            >
+              Resend
+            </button>
           </p>
         </div>
       </div>
@@ -26,7 +35,7 @@ export function BoardProfileTab() {
             <h3 className="font-semibold text-lg">Tenure Notifications</h3>
           </div>
           <Button 
-            onClick={() => window.alert("Tenure Notifications feature is coming soon!")}
+            onClick={onManageTenure}
             className="bg-[#1a1130] hover:bg-[#110b20] text-white rounded-md px-4 py-1.5 h-9 font-medium text-sm"
           >
             Manage Notifications
@@ -50,7 +59,7 @@ export function BoardProfileTab() {
           By Name
         </div>
         <div 
-          onClick={() => window.alert("Tenure Notifications feature is coming soon!")}
+          onClick={onManageTenure}
           className="flex items-center gap-2 cursor-pointer hover:text-slate-900"
         >
           <Bell className="w-4 h-4" />

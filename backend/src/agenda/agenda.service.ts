@@ -14,17 +14,11 @@ import { CreateAgendaItemDto } from './dto/create-agenda-item.dto';
 import { UpdateAgendaItemDto } from './dto/update-agenda-item.dto';
 import { OrganisationRole } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
+import { CAN_MANAGE_AGENDA } from '../common/auth/roles.constants';
 
 @Injectable()
 export class AgendaService {
   private readonly logger = new Logger(AgendaService.name);
-
-  // Roles allowed to modify agenda
-  private readonly EDIT_ROLES: OrganisationRole[] = [
-    OrganisationRole.BOARD_ADMIN,
-    OrganisationRole.CHAIR,
-    OrganisationRole.SECRETARY,
-  ];
 
   constructor(
     private readonly prisma: PrismaService,
@@ -48,16 +42,11 @@ export class AgendaService {
     if (!meeting) throw new NotFoundException('Meeting not found');
     if (meeting.agendaStatus === 'PUBLISHED') throw new ForbiddenException('Cannot modify a published agenda');
 
-    const membership = await this.organisationsService.requireMembership(
+    const membership = await this.organisationsService.requireRole(
       meeting.organisationId,
       user.id,
+      CAN_MANAGE_AGENDA
     );
-
-    if (!this.EDIT_ROLES.includes(membership.role)) {
-      throw new ForbiddenException(
-        'You do not have permission to modify the agenda',
-      );
-    }
 
     try {
       const section = await this.prisma.agendaSection.create({
@@ -153,16 +142,11 @@ export class AgendaService {
     if (!section) throw new NotFoundException('Agenda section not found');
     if (section.meeting.agendaStatus === 'PUBLISHED') throw new ForbiddenException('Cannot modify a published agenda');
 
-    const membership = await this.organisationsService.requireMembership(
+    const membership = await this.organisationsService.requireRole(
       section.meeting.organisationId,
       user.id,
+      CAN_MANAGE_AGENDA
     );
-
-    if (!this.EDIT_ROLES.includes(membership.role)) {
-      throw new ForbiddenException(
-        'You do not have permission to modify the agenda',
-      );
-    }
 
     try {
       const updated = await this.prisma.agendaSection.update({
@@ -200,16 +184,11 @@ export class AgendaService {
     if (!section) throw new NotFoundException('Agenda section not found');
     if (section.meeting.agendaStatus === 'PUBLISHED') throw new ForbiddenException('Cannot modify a published agenda');
 
-    const membership = await this.organisationsService.requireMembership(
+    const membership = await this.organisationsService.requireRole(
       section.meeting.organisationId,
       user.id,
+      CAN_MANAGE_AGENDA
     );
-
-    if (!this.EDIT_ROLES.includes(membership.role)) {
-      throw new ForbiddenException(
-        'You do not have permission to modify the agenda',
-      );
-    }
 
     try {
       await this.prisma.agendaSection.delete({
@@ -250,16 +229,11 @@ export class AgendaService {
     if (!section) throw new NotFoundException('Agenda section not found');
     if (section.meeting.agendaStatus === 'PUBLISHED') throw new ForbiddenException('Cannot modify a published agenda');
 
-    const membership = await this.organisationsService.requireMembership(
+    const membership = await this.organisationsService.requireRole(
       section.meeting.organisationId,
       user.id,
+      CAN_MANAGE_AGENDA
     );
-
-    if (!this.EDIT_ROLES.includes(membership.role)) {
-      throw new ForbiddenException(
-        'You do not have permission to modify the agenda',
-      );
-    }
 
     try {
       const item = await this.prisma.agendaItem.create({
@@ -308,16 +282,11 @@ export class AgendaService {
     if (!item) throw new NotFoundException('Agenda item not found');
     if (item.section.meeting.agendaStatus === 'PUBLISHED') throw new ForbiddenException('Cannot modify a published agenda');
 
-    const membership = await this.organisationsService.requireMembership(
+    const membership = await this.organisationsService.requireRole(
       item.section.meeting.organisationId,
       user.id,
+      CAN_MANAGE_AGENDA
     );
-
-    if (!this.EDIT_ROLES.includes(membership.role)) {
-      throw new ForbiddenException(
-        'You do not have permission to modify the agenda',
-      );
-    }
 
     try {
       const updated = await this.prisma.agendaItem.update({
@@ -362,16 +331,11 @@ export class AgendaService {
     if (!item) throw new NotFoundException('Agenda item not found');
     if (item.section.meeting.agendaStatus === 'PUBLISHED') throw new ForbiddenException('Cannot modify a published agenda');
 
-    const membership = await this.organisationsService.requireMembership(
+    const membership = await this.organisationsService.requireRole(
       item.section.meeting.organisationId,
       user.id,
+      CAN_MANAGE_AGENDA
     );
-
-    if (!this.EDIT_ROLES.includes(membership.role)) {
-      throw new ForbiddenException(
-        'You do not have permission to modify the agenda',
-      );
-    }
 
     try {
       await this.prisma.agendaItem.delete({
@@ -409,14 +373,11 @@ export class AgendaService {
     if (!meeting) throw new NotFoundException('Meeting not found');
     if (meeting.agendaStatus === 'PUBLISHED') throw new ForbiddenException('Cannot modify a published agenda');
 
-    const membership = await this.organisationsService.requireMembership(
+    const membership = await this.organisationsService.requireRole(
       meeting.organisationId,
       user.id,
+      CAN_MANAGE_AGENDA
     );
-
-    if (!this.EDIT_ROLES.includes(membership.role)) {
-      throw new ForbiddenException('You do not have permission to modify agenda access');
-    }
 
     try {
       // Clear existing access

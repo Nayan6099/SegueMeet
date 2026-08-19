@@ -16,8 +16,13 @@ import { AddMemberDto } from './dto/add-member.dto';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { AuditService } from '../audit/audit.service';
 
-/** Roles that have administrative permissions within an organisation. */
-const ADMIN_ROLES: OrganisationRole[] = [OrganisationRole.BOARD_ADMIN];
+import {
+  CAN_EDIT_BOARD_PROFILE,
+  CAN_INVITE_MEMBERS,
+  CAN_CHANGE_MEMBER_ROLES,
+  CAN_REMOVE_MEMBERS,
+  CAN_VIEW_AUDIT_LOGS
+} from '../common/auth/roles.constants';
 
 @Injectable()
 export class OrganisationsService {
@@ -101,7 +106,7 @@ export class OrganisationsService {
     dto: UpdateOrganisationDto,
     requestingUser: AuthenticatedUser,
   ) {
-    await this.requireAdminRole(organisationId, requestingUser.id);
+    await this.requireRole(organisationId, requestingUser.id, CAN_EDIT_BOARD_PROFILE);
 
     const org = await this.prisma.organisation.findUnique({
       where: { id: organisationId },
@@ -189,7 +194,7 @@ export class OrganisationsService {
     dto: AddMemberDto,
     requestingUser: AuthenticatedUser,
   ) {
-    await this.requireAdminRole(organisationId, requestingUser.id);
+    await this.requireRole(organisationId, requestingUser.id, CAN_INVITE_MEMBERS);
 
     const orgExists = await this.prisma.organisation.findUnique({
       where: { id: organisationId },
@@ -199,15 +204,20 @@ export class OrganisationsService {
       throw new NotFoundException('Organisation not found');
     }
 
-    // Look up the target user by email
-    const targetUser = await this.prisma.user.findUnique({
+    // Look up the target user by email, or create them if they don't exist
+    let targetUser = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase().trim() },
       select: { id: true, email: true, name: true },
     });
+    
     if (!targetUser) {
-      throw new NotFoundException(
-        `No account found with email ${dto.email}. The user must register first.`,
-      );
+      targetUser = await this.prisma.user.create({
+        data: {
+          email: dto.email.toLowerCase().trim(),
+          name: dto.name || 'New User',
+        },
+        select: { id: true, email: true, name: true },
+      });
     }
 
     // Check they are not already a member
@@ -258,6 +268,57 @@ export class OrganisationsService {
   }
 
   /**
+   * PATCH /organisations/:id/members/:userId
+   *
+   * Updates an existing member's role or tenure.
+   */
+  async updateMember(
+    organisationId: string,
+    targetUserId: string,
+    dto: { role?: any; tenureEndDate?: string | null },
+    requestingUser: AuthenticatedUser,
+  ) {
+    await this.requireRole(organisationId, requestingUser.id, CAN_CHANGE_MEMBER_ROLES);
+
+    const membership = await this.prisma.organisationMember.findUnique({
+      where: {
+        organisationId_userId: {
+          organisationId,
+          userId: targetUserId,
+        },
+      },
+    });
+
+    if (!membership) {
+      throw new NotFoundException('Member not found in this organisation');
+    }
+
+    const updated = await this.prisma.organisationMember.update({
+      where: { id: membership.id },
+      data: {
+        ...(dto.role && { role: dto.role }),
+        ...(dto.tenureEndDate !== undefined && { tenureEndDate: dto.tenureEndDate }),
+      },
+      select: {
+        id: true,
+        role: true,
+        user: { select: { id: true, name: true, email: true } }
+      }
+    });
+
+    this.auditService.log({
+      organisationId,
+      actorId: requestingUser.id,
+      action: 'organisation.member_updated',
+      entityType: 'OrganisationMember',
+      entityId: membership.id,
+      payload: { role: updated.role },
+    });
+
+    return updated;
+  }
+
+  /**
    * DELETE /organisations/:id/members/:userId
    *
    * Removes a user's membership from the organisation.
@@ -273,7 +334,7 @@ export class OrganisationsService {
     targetUserId: string,
     requestingUser: AuthenticatedUser,
   ) {
-    await this.requireAdminRole(organisationId, requestingUser.id);
+    await this.requireRole(organisationId, requestingUser.id, CAN_REMOVE_MEMBERS);
 
     const orgExists = await this.prisma.organisation.findUnique({
       where: { id: organisationId },
@@ -369,28 +430,46 @@ export class OrganisationsService {
   }
 
   /**
-   * Verifies the user is a member with an administrative role.
-   * Throws 403 Forbidden if they are a member but lack admin privileges.
+   * Verifies the user is a member and holds one of the allowed roles.
+   * Throws 403 Forbidden if the user lacks the required capabilities.
    */
-  private async requireAdminRole(
+  async requireRole(
     organisationId: string,
     userId: string,
+    allowedRoles: OrganisationRole[],
   ): Promise<OrganisationMember> {
     const membership = await this.requireMembership(organisationId, userId);
 
-    if (!ADMIN_ROLES.includes(membership.role)) {
-      throw new ForbiddenException('Only Board Admins can perform this action');
+    if (!allowedRoles.includes(membership.role)) {
+      throw new ForbiddenException('You do not have permission to perform this action');
     }
 
     return membership;
   }
+
+  /**
+   * Non-throwing check: returns true if the user is a member
+   * with one of the allowed roles, false otherwise.
+   * Use when you need a boolean gate rather than an exception.
+   */
+  async hasAnyRole(
+    organisationId: string,
+    userId: string,
+    allowedRoles: OrganisationRole[],
+  ): Promise<boolean> {
+    const membership = await this.prisma.organisationMember.findUnique({
+      where: { organisationId_userId: { organisationId, userId } },
+    });
+    return !!membership && allowedRoles.includes(membership.role);
+  }
+
 
   // ─────────────────────────────────────────────
   // AUDIT LOGS
   // ─────────────────────────────────────────────
 
   async getAuditLogs(organisationId: string, requestingUser: AuthenticatedUser) {
-    await this.requireMembership(organisationId, requestingUser.id);
+    await this.requireRole(organisationId, requestingUser.id, CAN_VIEW_AUDIT_LOGS);
     return this.prisma.auditLog.findMany({
       where: { organisationId },
       include: {
@@ -418,7 +497,7 @@ export class OrganisationsService {
     dto: CreateLocationDto,
     requestingUser: AuthenticatedUser,
   ) {
-    await this.requireMembership(organisationId, requestingUser.id);
+    await this.requireRole(organisationId, requestingUser.id, CAN_EDIT_BOARD_PROFILE);
 
     if (dto.isDefault) {
       await this.prisma.meetingLocation.updateMany({

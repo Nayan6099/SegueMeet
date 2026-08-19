@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import React from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -41,11 +42,25 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
   const [locTimeZone, setLocTimeZone] = useState("Local: Asia/Calcutta (UTC+05:30)");
   const [locIsDefault, setLocIsDefault] = useState(false);
 
+  // Video Link & Attendees State
+  const [videoLink, setVideoLink] = useState("");
+  const [attendeeIds, setAttendeeIds] = useState<string[]>([]);
+
   // Fetch Locations
   const { data: locations = [] } = useQuery({
     queryKey: ["locations", organisationId],
     queryFn: async () => {
       const res = await api.get(`/organisations/${organisationId}/locations`);
+      return res.data;
+    },
+    enabled: !!organisationId && isOpen,
+  });
+
+  // Fetch Members for Attendees Selection
+  const { data: members = [] } = useQuery({
+    queryKey: ["members", organisationId],
+    queryFn: async () => {
+      const res = await api.get(`/organisations/${organisationId}/members`);
       return res.data;
     },
     enabled: !!organisationId && isOpen,
@@ -103,6 +118,9 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
       setLocAddress("");
       setLocIsDefault(false);
     },
+    onError: (error: any) => {
+      console.error("Location creation failed:", error.response?.data || error.message);
+    }
   });
 
   const createMeetingMutation = useMutation({
@@ -117,6 +135,7 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
         startTime: formatTime24(startHour, startMin, startAmPm),
         endTime: formatTime24(endHour, endMin, endAmPm),
         location: locString,
+        attendeeIds,
       });
     },
     onSuccess: () => {
@@ -126,6 +145,9 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
       setTitle("");
       setDate("");
     },
+    onError: (error: any) => {
+      console.error("Meeting creation failed:", error.response?.data || error.message);
+    }
   });
 
   const selectedLocation = locations.find((l: any) => l.id === locationId) || locations.find((l: any) => l.isDefault) || locations[0];
@@ -133,7 +155,7 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
   return (
     <>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        {trigger && <DialogTrigger render={trigger as React.ReactElement} />}
+        {trigger && React.cloneElement(trigger as React.ReactElement, { onClick: () => setIsOpen(true) })}
         <DialogContent className="sm:max-w-[550px] p-0 overflow-hidden">
           <div className="p-6">
             <DialogHeader className="mb-6 flex flex-row items-center gap-2">
@@ -236,6 +258,43 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
                   <Plus className="w-4 h-4" />
                   Add a Meeting Location
                 </Button>
+              </div>
+
+              {/* Video Link */}
+              <div className="space-y-2 pt-2">
+                <Label className="text-xs text-slate-500 font-medium">Video Meeting Link (Optional)</Label>
+                <Input 
+                  value={videoLink} 
+                  onChange={(e) => setVideoLink(e.target.value)}
+                  placeholder="e.g. https://meet.google.com/xyz"
+                  className="border-0 border-b border-slate-300 rounded-none px-0 focus-visible:ring-0 focus-visible:border-blue-600 shadow-none text-slate-800" 
+                />
+              </div>
+
+              {/* Attendees */}
+              <div className="space-y-2 pt-2">
+                <Label className="text-xs text-slate-500 font-medium">Invitees</Label>
+                <div className="border border-slate-200 rounded-md p-3 max-h-40 overflow-y-auto space-y-2 bg-slate-50">
+                  {members.map((member: any) => (
+                    <div key={member.user.id} className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={`member-${member.user.id}`} 
+                        checked={attendeeIds.includes(member.user.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setAttendeeIds(prev => [...prev, member.user.id]);
+                          } else {
+                            setAttendeeIds(prev => prev.filter(id => id !== member.user.id));
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`member-${member.user.id}`} className="text-sm cursor-pointer">
+                        {member.user.name} <span className="text-slate-500">({member.role.replace('_', ' ')})</span>
+                      </Label>
+                    </div>
+                  ))}
+                  {members.length === 0 && <p className="text-xs text-slate-500 italic">No members found.</p>}
+                </div>
               </div>
 
               {/* Notice */}

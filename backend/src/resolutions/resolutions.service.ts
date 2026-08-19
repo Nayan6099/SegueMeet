@@ -11,6 +11,8 @@ import type { AuthenticatedUser } from '../auth/auth.types';
 import { VoteStatus, ResolutionStatus } from '@prisma/client';
 import { CreateResolutionDto } from './dto/create-resolution.dto';
 
+import { CAN_MANAGE_RESOLUTIONS, CAN_VOTE } from '../common/auth/roles.constants';
+
 @Injectable()
 export class ResolutionsService {
   private readonly logger = new Logger(ResolutionsService.name);
@@ -43,9 +45,10 @@ export class ResolutionsService {
   }
 
   async createResolution(dto: CreateResolutionDto, user: AuthenticatedUser) {
-    await this.organisationsService.requireMembership(
+    await this.organisationsService.requireRole(
       dto.organisationId,
       user.id,
+      CAN_MANAGE_RESOLUTIONS
     );
 
     try {
@@ -78,9 +81,10 @@ export class ResolutionsService {
 
     if (!resolution) throw new NotFoundException('Resolution not found');
 
-    await this.organisationsService.requireMembership(
+    await this.organisationsService.requireRole(
       resolution.organisationId,
       user.id,
+      CAN_VOTE
     );
 
     if (resolution.status !== 'OPEN') {

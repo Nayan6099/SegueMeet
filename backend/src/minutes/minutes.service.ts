@@ -19,12 +19,7 @@ import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '@prisma/client';
 
-/** Roles permitted to create, update, or delete Minutes and Action Items. */
-const EDIT_ROLES: OrganisationRole[] = [
-  OrganisationRole.BOARD_ADMIN,
-  OrganisationRole.CHAIR,
-  OrganisationRole.SECRETARY,
-];
+import { CAN_MANAGE_MINUTES, CAN_MANAGE_ACTIONS } from '../common/auth/roles.constants';
 
 @Injectable()
 export class MinutesService {
@@ -131,16 +126,11 @@ export class MinutesService {
   ) {
     const meeting = await this.resolveMeeting(meetingId);
 
-    const membership = await this.organisationsService.requireMembership(
+    const membership = await this.organisationsService.requireRole(
       meeting.organisationId,
       user.id,
+      CAN_MANAGE_MINUTES
     );
-
-    if (!EDIT_ROLES.includes(membership.role)) {
-      throw new ForbiddenException(
-        'You do not have permission to create minutes',
-      );
-    }
 
     try {
       const minutes = await this.prisma.minutes.create({
@@ -245,16 +235,11 @@ export class MinutesService {
   ) {
     const minutes = await this.resolveMinutes(minutesId);
 
-    const membership = await this.organisationsService.requireMembership(
+    const membership = await this.organisationsService.requireRole(
       minutes.meeting.organisationId,
       user.id,
+      CAN_MANAGE_MINUTES
     );
-
-    if (!EDIT_ROLES.includes(membership.role)) {
-      throw new ForbiddenException(
-        'You do not have permission to update minutes',
-      );
-    }
 
     try {
       const updated = await this.prisma.minutes.update({
@@ -294,16 +279,11 @@ export class MinutesService {
   async deleteMinutes(minutesId: string, user: AuthenticatedUser) {
     const minutes = await this.resolveMinutes(minutesId);
 
-    const membership = await this.organisationsService.requireMembership(
+    const membership = await this.organisationsService.requireRole(
       minutes.meeting.organisationId,
       user.id,
+      CAN_MANAGE_MINUTES
     );
-
-    if (!EDIT_ROLES.includes(membership.role)) {
-      throw new ForbiddenException(
-        'You do not have permission to delete minutes',
-      );
-    }
 
     try {
       await this.prisma.minutes.delete({ where: { id: minutesId } });
@@ -323,6 +303,152 @@ export class MinutesService {
         error instanceof Error ? error.stack : String(error),
       );
       throw new InternalServerErrorException('Failed to delete minutes');
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // MINUTES APPROVAL WORKFLOW
+  // ─────────────────────────────────────────────
+
+  async submitForReview(minutesId: string, user: AuthenticatedUser) {
+    const minutes = await this.resolveMinutes(minutesId);
+    await this.organisationsService.requireRole(
+      minutes.meeting.organisationId,
+      user.id,
+      CAN_MANAGE_MINUTES
+    );
+
+    if (minutes.status !== 'DRAFT') {
+      throw new ConflictException('Only DRAFT minutes can be submitted for review');
+    }
+
+    try {
+      const updated = await this.prisma.minutes.update({
+        where: { id: minutesId },
+        data: { status: 'IN_REVIEW' },
+      });
+
+      this.auditService.log({
+        organisationId: minutes.meeting.organisationId,
+        actorId: user.id,
+        action: 'minutes.submitted_for_review',
+        entityType: 'Minutes',
+        entityId: minutesId,
+      });
+
+      // Notify attendees that minutes are ready for review
+      const attendees = await this.prisma.meetingAttendee.findMany({
+        where: { meetingId: minutes.meetingId },
+      });
+
+      for (const attendee of attendees) {
+        if (attendee.userId !== user.id) {
+          await this.notificationsService.createNotification({
+            organisationId: minutes.meeting.organisationId,
+            recipientId: attendee.userId,
+            type: NotificationType.DOCUMENT_SHARED,
+            title: 'Minutes Ready for Review',
+            message: 'The meeting minutes are now ready for your review and signature.',
+            entityType: 'Minutes',
+            entityId: minutesId,
+          });
+        }
+      }
+
+      return updated;
+    } catch (error) {
+      this.logger.error(`Failed to submit minutes ${minutesId} for review`, error);
+      throw new InternalServerErrorException('Failed to submit minutes for review');
+    }
+  }
+
+  async signMinutes(minutesId: string, user: AuthenticatedUser) {
+    const minutes = await this.resolveMinutes(minutesId);
+    
+    // Any member of the org can technically sign if they were at the meeting
+    // Validating membership is a baseline security check
+    await this.organisationsService.requireMembership(
+      minutes.meeting.organisationId,
+      user.id
+    );
+
+    if (minutes.status !== 'IN_REVIEW') {
+      throw new ConflictException('Minutes must be IN_REVIEW to be signed');
+    }
+
+    // Optional: check if they attended the meeting
+    const attendance = await this.prisma.meetingAttendee.findUnique({
+      where: {
+        meetingId_userId: { meetingId: minutes.meetingId, userId: user.id }
+      }
+    });
+
+    if (!attendance) {
+      throw new ForbiddenException('Only meeting attendees can sign the minutes');
+    }
+
+    const signatureHash = crypto
+      .createHash('sha256')
+      .update(`${minutesId}:${user.id}:${minutes.content || ''}:${Date.now()}`)
+      .digest('hex');
+
+    try {
+      const signature = await this.prisma.minutesSignature.create({
+        data: {
+          minutesId,
+          signerId: user.id,
+          signatureHash,
+        },
+      });
+
+      this.auditService.log({
+        organisationId: minutes.meeting.organisationId,
+        actorId: user.id,
+        action: 'minutes.signed',
+        entityType: 'MinutesSignature',
+        entityId: signature.id,
+      });
+
+      return signature;
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('You have already signed these minutes');
+      }
+      this.logger.error(`Failed to sign minutes ${minutesId}`, error);
+      throw new InternalServerErrorException('Failed to sign minutes');
+    }
+  }
+
+  async confirmMinutes(minutesId: string, user: AuthenticatedUser) {
+    const minutes = await this.resolveMinutes(minutesId);
+    await this.organisationsService.requireRole(
+      minutes.meeting.organisationId,
+      user.id,
+      CAN_MANAGE_MINUTES
+    );
+
+    if (minutes.status !== 'IN_REVIEW') {
+      throw new ConflictException('Only IN_REVIEW minutes can be confirmed');
+    }
+
+    try {
+      const updated = await this.prisma.minutes.update({
+        where: { id: minutesId },
+        data: { status: 'CONFIRMED' },
+      });
+
+      this.auditService.log({
+        organisationId: minutes.meeting.organisationId,
+        actorId: user.id,
+        action: 'minutes.confirmed',
+        entityType: 'Minutes',
+        entityId: minutesId,
+      });
+
+      return updated;
+    } catch (error) {
+      this.logger.error(`Failed to confirm minutes ${minutesId}`, error);
+      throw new InternalServerErrorException('Failed to confirm minutes');
     }
   }
 
@@ -385,16 +511,11 @@ export class MinutesService {
     const minutes = await this.resolveMinutes(minutesId);
     const { organisationId } = minutes.meeting;
 
-    const membership = await this.organisationsService.requireMembership(
+    const membership = await this.organisationsService.requireRole(
       organisationId,
       user.id,
+      CAN_MANAGE_ACTIONS
     );
-
-    if (!EDIT_ROLES.includes(membership.role)) {
-      throw new ForbiddenException(
-        'You do not have permission to create action items',
-      );
-    }
 
     // Validate assignee belongs to the same tenant before touching DB
     if (dto.assigneeId) {
@@ -461,16 +582,11 @@ export class MinutesService {
     const item = await this.resolveActionItem(actionItemId);
     const { organisationId } = item.minutes.meeting;
 
-    const membership = await this.organisationsService.requireMembership(
+    const membership = await this.organisationsService.requireRole(
       organisationId,
       user.id,
+      CAN_MANAGE_ACTIONS
     );
-
-    if (!EDIT_ROLES.includes(membership.role)) {
-      throw new ForbiddenException(
-        'You do not have permission to update action items',
-      );
-    }
 
     // Validate new assignee belongs to same tenant (if being changed)
     if (dto.assigneeId) {
@@ -530,16 +646,11 @@ export class MinutesService {
     const item = await this.resolveActionItem(actionItemId);
     const { organisationId } = item.minutes.meeting;
 
-    const membership = await this.organisationsService.requireMembership(
+    const membership = await this.organisationsService.requireRole(
       organisationId,
       user.id,
+      CAN_MANAGE_ACTIONS
     );
-
-    if (!EDIT_ROLES.includes(membership.role)) {
-      throw new ForbiddenException(
-        'You do not have permission to delete action items',
-      );
-    }
 
     try {
       await this.prisma.minutesActionItem.delete({
@@ -571,15 +682,12 @@ export class MinutesService {
     const minutes = await this.resolveMinutes(minutesId);
     const { organisationId } = minutes.meeting;
 
-    const membership = await this.organisationsService.requireMembership(
+    // Only allow CAN_MANAGE_MINUTES roles to sign
+    const membership = await this.organisationsService.requireRole(
       organisationId,
       user.id,
+      CAN_MANAGE_MINUTES
     );
-
-    // Only allow Board Admins, Chairs, or Secretaries to sign
-    if (!EDIT_ROLES.includes(membership.role)) {
-      throw new ForbiddenException('You do not have permission to sign minutes');
-    }
 
     if (minutes.status !== 'CONFIRMED') {
       throw new ForbiddenException('Minutes must be CONFIRMED before signing');

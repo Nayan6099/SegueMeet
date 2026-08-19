@@ -10,6 +10,8 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Header,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { MeetingsService } from './meetings.service';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
@@ -26,11 +28,15 @@ export class MeetingsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(
+  async create(
     @Body() createMeetingDto: CreateMeetingDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.meetingsService.createMeeting(createMeetingDto, user);
+    try {
+      return await this.meetingsService.createMeeting(createMeetingDto, user);
+    } catch (err: any) {
+      throw new InternalServerErrorException(err.stack || err.message || String(err));
+    }
   }
 
   @Get()
@@ -59,5 +65,24 @@ export class MeetingsController {
   @HttpCode(HttpStatus.OK)
   remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.meetingsService.deleteMeeting(id, user);
+  }
+
+  @Post(':id/attendees')
+  @HttpCode(HttpStatus.CREATED)
+  addAttendee(
+    @Param('id') id: string,
+    @Body('userId') userId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.meetingsService.addAttendee(id, userId, user);
+  }
+
+  @Get(':id/notice/pdf')
+  @Header('Content-Type', 'application/pdf')
+  generateNoticePdf(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.meetingsService.generateNoticePdf(id, user);
   }
 }

@@ -16,12 +16,7 @@ import { AuditService } from '../audit/audit.service';
 import { v2 as cloudinary } from 'cloudinary';
 import * as streamifier from 'streamifier';
 
-/** Roles allowed to create, update, or delete documents. */
-const EDIT_ROLES: OrganisationRole[] = [
-  OrganisationRole.BOARD_ADMIN,
-  OrganisationRole.CHAIR,
-  OrganisationRole.SECRETARY,
-];
+import { CAN_MANAGE_DOCUMENTS } from '../common/auth/roles.constants';
 
 @Injectable()
 export class DocumentsService {
@@ -115,16 +110,11 @@ export class DocumentsService {
    *   3. If agendaItemId is provided, its chain must resolve to the same org.
    */
   async createDocument(dto: CreateDocumentDto, user: AuthenticatedUser) {
-    const membership = await this.organisationsService.requireMembership(
+    const membership = await this.organisationsService.requireRole(
       dto.organisationId,
       user.id,
+      CAN_MANAGE_DOCUMENTS
     );
-
-    if (!EDIT_ROLES.includes(membership.role)) {
-      throw new ForbiddenException(
-        'You do not have permission to upload documents',
-      );
-    }
 
     // Validate optional parent associations belong to the same tenant
     if (dto.meetingId) {
@@ -150,6 +140,14 @@ export class DocumentsService {
           agendaItemId: dto.agendaItemId ?? null,
           folderId: dto.folderId ?? null,
           uploadedById: user.id,
+          versions: {
+            create: {
+              version: 1,
+              storagePath: dto.storagePath,
+              sizeBytes: dto.sizeBytes,
+              uploadedById: user.id,
+            },
+          },
         },
       });
 
@@ -227,6 +225,83 @@ export class DocumentsService {
     });
   }
 
+  /**
+   * Uploads a new version of an existing document to Cloudinary and creates a DocumentVersion.
+   */
+  async uploadNewVersion(
+    documentId: string,
+    file: Express.Multer.File,
+    user: AuthenticatedUser,
+  ) {
+    const document = await this.resolveDocument(documentId);
+    await this.organisationsService.requireRole(
+      document.organisationId,
+      user.id,
+      CAN_MANAGE_DOCUMENTS
+    );
+
+    const latestVersion = await this.prisma.documentVersion.findFirst({
+      where: { documentId },
+      orderBy: { version: 'desc' },
+    });
+
+    const nextVersionNum = latestVersion ? latestVersion.version + 1 : 2;
+
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'seguemeet_documents',
+          resource_type: 'auto',
+        },
+        async (error, result) => {
+          if (error) {
+            this.logger.error('Cloudinary upload failed', error);
+            return reject(new InternalServerErrorException('Failed to upload file to cloud'));
+          }
+          if (!result) {
+            return reject(new InternalServerErrorException('No result from Cloudinary'));
+          }
+
+          try {
+            // Update document's main storagePath and sizeBytes, and create the new version
+            const updatedDoc = await this.prisma.document.update({
+              where: { id: documentId },
+              data: {
+                storagePath: result.secure_url,
+                sizeBytes: file.size,
+                originalName: file.originalname,
+                mimeType: file.mimetype,
+                versions: {
+                  create: {
+                    version: nextVersionNum,
+                    storagePath: result.secure_url,
+                    sizeBytes: file.size,
+                    uploadedById: user.id,
+                  },
+                },
+              },
+              include: { versions: true },
+            });
+
+            this.auditService.log({
+              organisationId: document.organisationId,
+              actorId: user.id,
+              action: 'document.version_created',
+              entityType: 'Document',
+              entityId: document.id,
+              payload: { version: nextVersionNum, originalName: file.originalname },
+            });
+
+            resolve(updatedDoc);
+          } catch (dbError) {
+            reject(dbError);
+          }
+        },
+      );
+      streamifier.createReadStream(file.buffer).pipe(uploadStream);
+    });
+  }
+
   // ─────────────────────────────────────────────
   // LIST
   // ─────────────────────────────────────────────
@@ -240,10 +315,7 @@ export class DocumentsService {
   }
 
   async createFolder(organisationId: string, name: string, user: AuthenticatedUser) {
-    const membership = await this.organisationsService.requireMembership(organisationId, user.id);
-    if (!EDIT_ROLES.includes(membership.role)) {
-      throw new ForbiddenException('You do not have permission to create folders');
-    }
+    const membership = await this.organisationsService.requireRole(organisationId, user.id, CAN_MANAGE_DOCUMENTS);
     const folder = await this.prisma.documentFolder.create({
       data: { organisationId, name },
     });
@@ -333,16 +405,11 @@ export class DocumentsService {
   ) {
     const doc = await this.resolveDocument(id);
 
-    const membership = await this.organisationsService.requireMembership(
+    const membership = await this.organisationsService.requireRole(
       doc.organisationId,
       user.id,
+      CAN_MANAGE_DOCUMENTS
     );
-
-    if (!EDIT_ROLES.includes(membership.role)) {
-      throw new ForbiddenException(
-        'You do not have permission to update documents',
-      );
-    }
 
     // Validate new parent associations stay within the same tenant
     if (dto.meetingId) {
@@ -408,16 +475,11 @@ export class DocumentsService {
   async deleteDocument(id: string, user: AuthenticatedUser) {
     const doc = await this.resolveDocument(id);
 
-    const membership = await this.organisationsService.requireMembership(
+    const membership = await this.organisationsService.requireRole(
       doc.organisationId,
       user.id,
+      CAN_MANAGE_DOCUMENTS
     );
-
-    if (!EDIT_ROLES.includes(membership.role)) {
-      throw new ForbiddenException(
-        'You do not have permission to delete documents',
-      );
-    }
 
     try {
       await this.prisma.document.delete({ where: { id } });

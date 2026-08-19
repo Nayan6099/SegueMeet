@@ -89,15 +89,25 @@ export class AuthService {
       );
     }
 
-    // 4. Fetch the safe user representation for the response
+    // 4. Fetch the fully populated safe user representation for the response
     const safeUser = await this.prisma.user.findUniqueOrThrow({
       where: { id: result.userId },
-      select: SAFE_USER_SELECT,
+      select: {
+        ...SAFE_USER_SELECT,
+        memberships: {
+          select: {
+            organisationId: true,
+            role: true,
+            organisation: { select: { id: true, name: true } },
+          },
+        },
+      },
     });
 
     return {
       accessToken: this.issueToken(safeUser.id, safeUser.email),
       user: safeUser,
+      // organisation is also returned for backward compatibility if the client expects it at the top level
       organisation: { id: result.orgId, name: result.orgName },
     };
   }
@@ -128,9 +138,20 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    // Build safe user (omit passwordHash)
-    const { passwordHash: _pw, ...safeUser } = user;
-    void _pw; // explicitly discard
+    // Fetch the fully populated safe user with memberships
+    const safeUser = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        ...SAFE_USER_SELECT,
+        memberships: {
+          select: {
+            organisationId: true,
+            role: true,
+            organisation: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
 
     return {
       accessToken: this.issueToken(user.id, user.email),

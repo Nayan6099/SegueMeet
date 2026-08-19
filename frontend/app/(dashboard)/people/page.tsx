@@ -2,7 +2,6 @@
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { mockPeople } from "@/lib/mock-people";
 import { User, ExternalLink, Info, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 
@@ -15,13 +14,32 @@ import { BoardProfileTab } from "@/components/people/board-profile-tab";
 import { ChangesLogTab } from "@/components/people/changes-log-tab";
 import { InterestsRegisterTab } from "@/components/people/interests-register-tab";
 import { AddInterestModal } from "@/components/people/add-interest-modal";
+import { ManageTenureNotificationsModal } from "@/components/people/manage-tenure-notifications-modal";
+import { EditMemberModal } from "@/components/people/edit-member-modal";
+import { AddPersonModal } from "@/components/people/add-person-modal";
+import { AccessLevelsModal } from "@/components/people/access-levels-modal";
+import { toast } from "sonner";
 
 export default function PeoplePage() {
   const [activeTab, setActiveTab] = useState("people");
   const [isAddInterestOpen, setIsAddInterestOpen] = useState(false);
+  const [isAddPersonOpen, setIsAddPersonOpen] = useState(false);
+  const [isManageTenureOpen, setIsManageTenureOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<any>(null);
+  const [isAccessLevelsOpen, setIsAccessLevelsOpen] = useState(false);
 
   const { user } = useAuth();
   const orgId = user?.memberships?.[0]?.organisationId || user?.memberships?.[0]?.organisation?.id;
+
+  const { data: orgData } = useQuery({
+    queryKey: ["organisation", orgId],
+    queryFn: async () => {
+      if (!orgId) return null;
+      const res = await api.get(`/organisations/${orgId}`);
+      return res.data;
+    },
+    enabled: !!orgId,
+  });
 
   const { data: members = [], isLoading } = useQuery({
     queryKey: ["members", orgId],
@@ -49,7 +67,7 @@ export default function PeoplePage() {
     </div>
   );
 
-  const renderPeopleList = (people: typeof mockPeople) => {
+  const renderPeopleList = (people: any[]) => {
     return (
       <div className="border rounded-xl bg-white overflow-hidden shadow-sm">
         <table className="w-full text-sm text-left">
@@ -59,6 +77,7 @@ export default function PeoplePage() {
               <th className="px-6 py-4 font-medium">Roles</th>
               <th className="px-6 py-4 font-medium">Email</th>
               <th className="px-6 py-4 font-medium">Status</th>
+              <th className="px-6 py-4 font-medium text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -83,6 +102,11 @@ export default function PeoplePage() {
                     <CheckCircle2 className="w-3 h-3" />
                     Active
                   </span>
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <Button variant="ghost" size="sm" onClick={() => setEditingMember(person)} className="text-slate-500 hover:text-blue-600">
+                    Edit
+                  </Button>
                 </td>
               </tr>
             ))}
@@ -115,12 +139,21 @@ export default function PeoplePage() {
             Add New Interest
           </Button>
         ) : (
-          <Button className="bg-slate-300 hover:bg-slate-400 text-slate-700 rounded-md px-6 shadow-sm flex items-center gap-2 font-medium h-9">
+          <Button 
+            onClick={() => setIsAddPersonOpen(true)}
+            className="bg-slate-300 hover:bg-slate-400 text-slate-700 rounded-md px-6 shadow-sm flex items-center gap-2 font-medium h-9"
+          >
             <User className="w-4 h-4" />
             Add Person
           </Button>
         )}
       </div>
+
+      <AddPersonModal 
+        isOpen={isAddPersonOpen} 
+        onOpenChange={setIsAddPersonOpen} 
+        organisationId={orgId || ""} 
+      />
 
       {orgId && (
         <AddInterestModal
@@ -128,6 +161,30 @@ export default function PeoplePage() {
           members={members}
           isOpen={isAddInterestOpen}
           onOpenChange={setIsAddInterestOpen}
+        />
+      )}
+
+      {orgId && (
+        <ManageTenureNotificationsModal
+          organisationId={orgId}
+          members={members}
+          currentAdminId={orgData?.settings?.tenureAdminId}
+          isOpen={isManageTenureOpen}
+          onOpenChange={setIsManageTenureOpen}
+        />
+      )}
+
+      <AccessLevelsModal
+        isOpen={isAccessLevelsOpen}
+        onOpenChange={setIsAccessLevelsOpen}
+      />
+
+      {orgId && (
+        <EditMemberModal
+          organisationId={orgId}
+          member={editingMember}
+          isOpen={!!editingMember}
+          onOpenChange={(open) => !open && setEditingMember(null)}
         />
       )}
 
@@ -160,7 +217,7 @@ export default function PeoplePage() {
             </TabsTrigger>
           </TabsList>
           
-          <Link href="#" className="flex items-center text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors">
+          <Link href="#" onClick={(e) => { e.preventDefault(); setIsAccessLevelsOpen(true); }} className="flex items-center text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors">
             Access Levels <ExternalLink className="ml-1.5 w-4 h-4" />
           </Link>
         </div>
@@ -179,7 +236,15 @@ export default function PeoplePage() {
             <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold text-slate-800">Confirm your email</p>
-              <p className="text-slate-600 mt-1">Check inbox to confirm your email address. Didn't receive the email? <button className="font-semibold underline hover:text-slate-800">Resend</button></p>
+              <p className="text-slate-600 mt-1">
+                Check inbox to confirm your email address. Didn't receive the email?{" "}
+                <button 
+                  onClick={() => window.alert("Email verification service is coming in the next phase!")}
+                  className="font-semibold underline hover:text-slate-800"
+                >
+                  Resend
+                </button>
+              </p>
             </div>
           </div>
 
@@ -199,7 +264,7 @@ export default function PeoplePage() {
         </TabsContent>
         
         <TabsContent value="profile" className="mt-0">
-          <BoardProfileTab />
+          <BoardProfileTab onManageTenure={() => setIsManageTenureOpen(true)} />
         </TabsContent>
         <TabsContent value="changes" className="mt-0">
           {orgId && <ChangesLogTab organisationId={orgId} />}

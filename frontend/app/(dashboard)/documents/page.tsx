@@ -108,11 +108,11 @@ export default function DocumentsPage() {
               </Button>
             } />
             <DropdownMenuContent align="end" className="w-48 shadow-lg rounded-xl border border-slate-100 p-1 font-medium">
-              <DropdownMenuItem onClick={() => setIsAddFolderOpen(true)} className="flex items-center gap-2 cursor-pointer py-2 hover:bg-slate-50 focus:bg-slate-50 rounded-lg">
+              <DropdownMenuItem onClick={() => setTimeout(() => setIsAddFolderOpen(true), 0)} className="flex items-center gap-2 cursor-pointer py-2 hover:bg-slate-50 focus:bg-slate-50 rounded-lg">
                 <Folder className="w-4 h-4 text-slate-700" />
                 <span>Add Folder</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setIsUploadOpen(true)} className="flex items-center gap-2 cursor-pointer py-2 hover:bg-slate-50 focus:bg-slate-50 rounded-lg">
+              <DropdownMenuItem onClick={() => setTimeout(() => setIsUploadOpen(true), 0)} className="flex items-center gap-2 cursor-pointer py-2 hover:bg-slate-50 focus:bg-slate-50 rounded-lg">
                 <UploadCloud className="w-4 h-4 text-slate-700" />
                 <span>Upload Files</span>
               </DropdownMenuItem>

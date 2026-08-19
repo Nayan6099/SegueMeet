@@ -4,7 +4,9 @@ import {
   ForbiddenException,
   InternalServerErrorException,
   Logger,
+  StreamableFile,
 } from '@nestjs/common';
+import PDFDocument from 'pdfkit';
 import { PrismaService } from '../common/database/prisma.service';
 import { OrganisationsService } from '../organisations/organisations.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
@@ -14,39 +16,30 @@ import { QueryMeetingsDto } from './dto/query-meetings.dto';
 import { OrganisationRole, Prisma, NotificationType } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { MailService } from '../mail/mail.service';
+import { CAN_MANAGE_MEETINGS } from '../common/auth/roles.constants';
 
 @Injectable()
 export class MeetingsService {
   private readonly logger = new Logger(MeetingsService.name);
-
-  // Roles allowed to edit meetings
-  private readonly EDIT_ROLES: OrganisationRole[] = [
-    OrganisationRole.BOARD_ADMIN,
-    OrganisationRole.CHAIR,
-    OrganisationRole.SECRETARY,
-  ];
-
-  // Roles allowed to delete meetings
-  private readonly DELETE_ROLES: OrganisationRole[] = [
-    OrganisationRole.BOARD_ADMIN,
-    OrganisationRole.CHAIR,
-  ];
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly organisationsService: OrganisationsService,
     private readonly auditService: AuditService,
     private readonly notificationsService: NotificationsService,
+    private readonly mailService: MailService,
   ) {}
 
   /**
    * POST /meetings
    */
   async createMeeting(dto: CreateMeetingDto, user: AuthenticatedUser) {
-    // 1. Verify tenant membership
-    await this.organisationsService.requireMembership(
+    // 1. Verify tenant membership and role
+    await this.organisationsService.requireRole(
       dto.organisationId,
       user.id,
+      CAN_MANAGE_MEETINGS
     );
 
     try {
@@ -62,7 +55,20 @@ export class MeetingsService {
           administrator: dto.administrator,
           notes: dto.notes,
           status: dto.status,
+          ...(dto.attendeeIds && dto.attendeeIds.length > 0 && {
+            attendees: {
+              create: dto.attendeeIds.map(userId => ({
+                userId,
+                rsvp: 'PENDING'
+              }))
+            }
+          })
         },
+        include: {
+          attendees: {
+            include: { user: true }
+          }
+        }
       });
 
       this.auditService.log({
@@ -74,23 +80,35 @@ export class MeetingsService {
         payload: { title: dto.title, date: dto.date },
       });
 
-      // Fetch all organisation members to notify them
-      const members = await this.prisma.organisationMember.findMany({
-        where: { organisationId: dto.organisationId },
-      });
-
-      for (const member of members) {
-        if (member.userId !== user.id) { // Optional: don't notify the creator
-          await this.notificationsService.createNotification({
-            organisationId: dto.organisationId,
-            recipientId: member.userId,
-            type: NotificationType.MEETING_CREATED,
-            title: 'New Meeting Scheduled',
-            message: `A new meeting "${meeting.title}" has been scheduled for ${meeting.date}.`,
-            entityType: 'Meeting',
-            entityId: meeting.id,
+      // Only notify actual attendees if attendeeIds are provided, else notify everyone (fallback for old UI)
+      const usersToNotify = meeting.attendees?.length > 0 
+        ? meeting.attendees.map(a => a.user)
+        : await this.prisma.user.findMany({
+            where: { memberships: { some: { organisationId: dto.organisationId } } }
           });
-        }
+
+      for (const member of usersToNotify) {
+        // if (member.id !== user.id) { // Allow creator to receive invite for testing
+        await this.notificationsService.createNotification({
+          organisationId: dto.organisationId,
+          recipientId: member.id,
+          type: NotificationType.MEETING_CREATED,
+          title: 'New Meeting Scheduled',
+          message: `A new meeting "${meeting.title}" has been scheduled for ${meeting.date}.`,
+          entityType: 'Meeting',
+          entityId: meeting.id,
+        });
+
+        // Also dispatch email
+        await this.mailService.sendMeetingInvite(
+          member.email,
+          meeting.title,
+          meeting.date,
+          `${meeting.startTime} - ${meeting.endTime}`,
+          null as any, // videoLink removed
+          meeting.location
+        );
+        // }
       }
 
       return meeting;
@@ -99,7 +117,7 @@ export class MeetingsService {
         `Failed to create meeting for org ${dto.organisationId}`,
         error instanceof Error ? error.stack : String(error),
       );
-      throw new InternalServerErrorException('Failed to create meeting');
+      throw new InternalServerErrorException(error instanceof Error ? error.stack : String(error));
     }
   }
 
@@ -161,6 +179,11 @@ export class MeetingsService {
   async getMeetingById(id: string, user: AuthenticatedUser) {
     const meeting = await this.prisma.meeting.findUnique({
       where: { id },
+      include: {
+        attendees: {
+          include: { user: true }
+        }
+      }
     });
 
     if (!meeting) {
@@ -192,18 +215,12 @@ export class MeetingsService {
       throw new NotFoundException('Meeting not found');
     }
 
-    // 1. Verify tenant membership
-    const membership = await this.organisationsService.requireMembership(
+    // 1. Verify tenant membership and role-based authorization for editing
+    const membership = await this.organisationsService.requireRole(
       meeting.organisationId,
       user.id,
+      CAN_MANAGE_MEETINGS
     );
-
-    // 2. Enforce role-based authorization for editing
-    if (!this.EDIT_ROLES.includes(membership.role)) {
-      throw new ForbiddenException(
-        'You do not have permission to update meetings in this organisation',
-      );
-    }
 
     try {
       const updated = await this.prisma.meeting.update({
@@ -282,18 +299,12 @@ export class MeetingsService {
       throw new NotFoundException('Meeting not found');
     }
 
-    // 1. Verify tenant membership
-    const membership = await this.organisationsService.requireMembership(
+    // 1. Verify tenant membership and role-based authorization for deletion
+    const membership = await this.organisationsService.requireRole(
       meeting.organisationId,
       user.id,
+      CAN_MANAGE_MEETINGS
     );
-
-    // 2. Enforce role-based authorization for deletion
-    if (!this.DELETE_ROLES.includes(membership.role)) {
-      throw new ForbiddenException(
-        'You do not have permission to delete meetings in this organisation',
-      );
-    }
 
     try {
       await this.prisma.meeting.delete({
@@ -316,5 +327,140 @@ export class MeetingsService {
       );
       throw new InternalServerErrorException('Failed to delete meeting');
     }
+  }
+  /**
+   * POST /meetings/:id/attendees
+   */
+  async addAttendee(meetingId: string, userId: string, user: AuthenticatedUser) {
+    const meeting = await this.prisma.meeting.findUnique({
+      where: { id: meetingId },
+    });
+
+    if (!meeting) {
+      throw new NotFoundException('Meeting not found');
+    }
+
+    // 1. Verify tenant membership and role-based authorization for editing
+    const membership = await this.organisationsService.requireRole(
+      meeting.organisationId,
+      user.id,
+      CAN_MANAGE_MEETINGS
+    );
+
+    try {
+      const attendee = await this.prisma.meetingAttendee.create({
+        data: {
+          meetingId,
+          userId,
+          rsvp: 'PENDING',
+        },
+        include: { user: true }
+      });
+
+      this.auditService.log({
+        organisationId: meeting.organisationId,
+        actorId: user.id,
+        action: 'meeting.attendee_added',
+        entityType: 'Meeting',
+        entityId: meetingId,
+        payload: { userId },
+      });
+
+      // Send email invite
+      await this.mailService.sendMeetingInvite(
+        attendee.user.email,
+        meeting.title,
+        meeting.date,
+        `${meeting.startTime} - ${meeting.endTime}`,
+        null as any, // videoLink removed
+        meeting.location
+      );
+
+      return attendee;
+    } catch (error) {
+      this.logger.error(
+        `Failed to add attendee to meeting ${meetingId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw new InternalServerErrorException('Failed to add attendee');
+    }
+  }
+
+  /**
+   * GET /meetings/:id/notice/pdf
+   */
+  async generateNoticePdf(id: string, user: AuthenticatedUser): Promise<StreamableFile> {
+    const meeting = await this.prisma.meeting.findUnique({
+      where: { id },
+      include: { attendees: { include: { user: true } } }
+    });
+
+    if (!meeting) throw new NotFoundException('Meeting not found');
+
+    await this.organisationsService.requireMembership(meeting.organisationId, user.id);
+
+    const buffer = await new Promise<Buffer>((resolve, reject) => {
+      const doc = new PDFDocument({ margin: 50, size: 'A4' });
+      const chunks: Buffer[] = [];
+      doc.on('data', (c: Buffer) => chunks.push(c));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      const pageWidth = doc.page.width;
+
+      // Header banner
+      doc.rect(0, 0, pageWidth, 140).fill('#2d1b54');
+      doc.fillColor('#ffffff').fontSize(24).font('Helvetica-Bold')
+        .text('MEETING NOTICE', 50, 45, { align: 'center' });
+      doc.fontSize(13).font('Helvetica')
+        .text(meeting.title, 50, 80, { align: 'center' });
+
+      doc.fillColor('#1a1a1a').moveDown(5);
+
+      const sectionHeader = (label: string) => {
+        doc.moveDown(0.8)
+          .fontSize(9).font('Helvetica-Bold').fillColor('#7c3aed')
+          .text(label.toUpperCase(), { characterSpacing: 1.5 })
+          .moveDown(0.2)
+          .moveTo(50, doc.y).lineTo(pageWidth - 50, doc.y)
+          .strokeColor('#e9d5ff').lineWidth(0.5).stroke()
+          .moveDown(0.5);
+      };
+
+      const row = (label: string, value: string) => {
+        doc.fontSize(10).font('Helvetica-Bold').fillColor('#6b7280')
+          .text(`${label}:`, 58, doc.y, { continued: true, width: 130 })
+          .font('Helvetica').fillColor('#1a1a1a')
+          .text(value, { width: pageWidth - 250 })
+          .moveDown(0.3);
+      };
+
+      sectionHeader('Meeting Details');
+      row('Date', meeting.date);
+      row('Time', `${meeting.startTime} - ${meeting.endTime}`);
+      row('Location', meeting.isRemote ? `${meeting.location} (Remote)` : meeting.location);
+      if (meeting.administrator) row('Administrator', meeting.administrator);
+      if (meeting.notes) row('Notes', meeting.notes);
+
+      if (meeting.attendees && meeting.attendees.length > 0) {
+        sectionHeader('Invitees');
+        (meeting.attendees as any[]).forEach((a) => {
+          doc.fontSize(10).font('Helvetica').fillColor('#1a1a1a')
+            .text(`- ${a.user.name} (${a.user.email})  RSVP: ${a.rsvp || 'PENDING'}`, 58)
+            .moveDown(0.2);
+        });
+      }
+
+      doc.moveDown(2)
+        .fontSize(8).fillColor('#9ca3af').font('Helvetica')
+        .text('Generated by SegueMeet', { align: 'center' });
+
+      doc.end();
+    });
+
+    return new StreamableFile(buffer, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="notice-${id}.pdf"`,
+    });
   }
 }

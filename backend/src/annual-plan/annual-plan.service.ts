@@ -8,6 +8,7 @@ import { PrismaService } from '../common/database/prisma.service';
 import { OrganisationsService } from '../organisations/organisations.service';
 import { AuditService } from '../audit/audit.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
+import { CAN_MANAGE_WORK_PLAN } from '../common/auth/roles.constants';
 
 @Injectable()
 export class AnnualPlanService {
@@ -41,11 +42,11 @@ export class AnnualPlanService {
   }
 
   async createAnnualPlan(organisationId: string, year: number, user: AuthenticatedUser) {
-    const membership = await this.organisationsService.requireMembership(organisationId, user.id);
-
-    if (!['BOARD_ADMIN', 'CHAIR', 'SECRETARY'].includes(membership.role)) {
-      throw new ForbiddenException('Only Administrators can perform this action');
-    }
+    await this.organisationsService.requireRole(
+      organisationId,
+      user.id,
+      CAN_MANAGE_WORK_PLAN
+    );
 
     try {
       const plan = await this.prisma.annualPlan.upsert({

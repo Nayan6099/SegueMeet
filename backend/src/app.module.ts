@@ -11,6 +11,7 @@ import { AuditModule } from './audit/audit.module';
 import { AgendaModule } from './agenda/agenda.module';
 import { MinutesModule } from './minutes/minutes.module';
 import { DocumentsModule } from './documents/documents.module';
+
 import { NotificationsModule } from './notifications/notifications.module';
 import { SearchModule } from './search/search.module';
 import { DecisionsModule } from './decisions/decisions.module';
@@ -18,9 +19,15 @@ import { ResolutionsModule } from './resolutions/resolutions.module';
 import { CommitteesModule } from './committees/committees.module';
 import { AnnualPlanModule } from './annual-plan/annual-plan.module';
 import { InterestsModule } from './interests/interests.module';
+import { MailModule } from './mail/mail.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { APP_GUARD } from '@nestjs/core';
+import { TenantGuard } from './common/guards/tenant.guard';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     /**
      * ConfigModule reads .env (or process.env) and makes every value
      * available via ConfigService throughout the application.
@@ -81,8 +88,14 @@ import { InterestsModule } from './interests/interests.module';
 
     /** Interests — Conflicts of interest register */
     InterestsModule,
+
+    /** Mail — Email sending service */
+    MailModule,
+
+    /** Analytics — Governance reporting and dashboards */
+    AnalyticsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, { provide: APP_GUARD, useClass: TenantGuard }],
 })
 export class AppModule {}

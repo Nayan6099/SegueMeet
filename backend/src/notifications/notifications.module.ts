@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
 import { OrganisationsModule } from '../organisations/organisations.module';
@@ -14,7 +14,7 @@ import { OrganisationsModule } from '../organisations/organisations.module';
  *  - OrganisationsModule for requireMembership() tenant isolation
  */
 @Module({
-  imports: [OrganisationsModule],
+  imports: [forwardRef(() => OrganisationsModule)],
   controllers: [NotificationsController],
   providers: [NotificationsService],
   exports: [NotificationsService],

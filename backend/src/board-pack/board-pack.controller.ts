@@ -1,4 +1,4 @@
-import { Controller, Get, Header, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Header, Param, UseGuards } from '@nestjs/common';
 import { BoardPackService } from './board-pack.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -48,5 +48,18 @@ export class BoardPackController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.boardPackService.generatePdf(meetingId, user);
+  }
+
+  /**
+   * POST /meetings/:meetingId/board-pack/publish
+   *
+   * Generates a PDF board pack, uploads it to Cloudinary, and saves it in the DB.
+   */
+  @Post('publish')
+  publishBoardPack(
+    @Param('meetingId') meetingId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.boardPackService.publishBoardPack(meetingId, user);
   }
 }

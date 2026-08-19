@@ -161,4 +161,28 @@ export class MinutesController {
   ) {
     return this.minutesService.signMinutes(minutesId, user);
   }
+
+  /**
+   * POST /minutes/:minutesId/submit
+   */
+  @Post('minutes/:minutesId/submit')
+  @HttpCode(HttpStatus.OK)
+  submitForReview(
+    @Param('minutesId') minutesId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.minutesService.submitForReview(minutesId, user);
+  }
+
+  /**
+   * POST /minutes/:minutesId/confirm
+   */
+  @Post('minutes/:minutesId/confirm')
+  @HttpCode(HttpStatus.OK)
+  confirmMinutes(
+    @Param('minutesId') minutesId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.minutesService.confirmMinutes(minutesId, user);
+  }
 }
