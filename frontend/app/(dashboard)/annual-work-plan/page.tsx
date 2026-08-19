@@ -13,7 +13,7 @@ export default function AnnualWorkPlanPage() {
   const orgId = user?.memberships?.[0]?.organisationId;
   const currentYear = new Date().getFullYear();
 
-  const { data: plans = [], isLoading } = useGetAnnualPlans(orgId, currentYear);
+  const { data: plans = [], isPending } = useGetAnnualPlans(orgId, currentYear);
   const createPlan = useCreateAnnualPlan(orgId, currentYear);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
@@ -43,7 +43,7 @@ export default function AnnualWorkPlanPage() {
       </div>
 
       {/* Content Area */}
-      {isLoading ? (
+      {isPending || !orgId ? (
         <div className="flex justify-center py-24"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>
       ) : !activePlan ? (
         <div className="border border-slate-200 rounded-xl bg-white min-h-[60vh] flex flex-col items-center justify-center text-center shadow-sm p-8">
