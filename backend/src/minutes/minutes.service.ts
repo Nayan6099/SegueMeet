@@ -346,7 +346,7 @@ export class MinutesService {
           await this.notificationsService.createNotification({
             organisationId: minutes.meeting.organisationId,
             recipientId: attendee.userId,
-            type: NotificationType.DOCUMENT_SHARED,
+            type: NotificationType.DOCUMENT_UPLOADED,
             title: 'Minutes Ready for Review',
             message: 'The meeting minutes are now ready for your review and signature.',
             entityType: 'Minutes',
@@ -675,64 +675,4 @@ export class MinutesService {
     }
   }
 
-  /**
-   * POST /meetings/:meetingId/minutes/sign
-   */
-  async signMinutes(minutesId: string, user: AuthenticatedUser) {
-    const minutes = await this.resolveMinutes(minutesId);
-    const { organisationId } = minutes.meeting;
-
-    // Only allow CAN_MANAGE_MINUTES roles to sign
-    const membership = await this.organisationsService.requireRole(
-      organisationId,
-      user.id,
-      CAN_MANAGE_MINUTES
-    );
-
-    if (minutes.status !== 'CONFIRMED') {
-      throw new ForbiddenException('Minutes must be CONFIRMED before signing');
-    }
-
-    // Check if user already signed
-    const existingSignature = await this.prisma.minutesSignature.findUnique({
-      where: {
-        minutesId_signerId: {
-          minutesId,
-          signerId: user.id
-        }
-      }
-    });
-
-    if (existingSignature) {
-      throw new ForbiddenException('You have already signed these minutes');
-    }
-
-    try {
-      const timestamp = new Date().toISOString();
-      const contentToHash = `${minutes.id}-${minutes.content}-${timestamp}-${user.id}`;
-      const signatureHash = crypto.createHash('sha256').update(contentToHash).digest('hex');
-
-      const signature = await this.prisma.minutesSignature.create({
-        data: {
-          minutesId,
-          signerId: user.id,
-          signatureHash
-        }
-      });
-
-      this.auditService.log({
-        organisationId,
-        actorId: user.id,
-        action: 'minutes.signed',
-        entityType: 'Minutes',
-        entityId: minutes.id,
-        payload: { signatureHash },
-      });
-
-      return signature;
-    } catch (error) {
-      this.logger.error(`Failed to sign minutes ${minutesId}`, error instanceof Error ? error.stack : String(error));
-      throw new InternalServerErrorException('Failed to sign minutes');
-    }
-  }
 }

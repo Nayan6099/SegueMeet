@@ -25,7 +25,7 @@ export class AnalyticsService {
         where: { minutes: { meeting: { organisationId } } }
       }),
       this.prisma.minutesActionItem.count({
-        where: { minutes: { meeting: { organisationId } }, status: 'DONE' }
+        where: { minutes: { meeting: { organisationId } }, status: 'COMPLETED' }
       }),
       this.prisma.decision.count({
         where: { meeting: { organisationId } }
@@ -47,7 +47,7 @@ export class AnalyticsService {
     await this.organisationsService.requireRole(organisationId, user.id, CAN_VIEW_ANALYTICS);
 
     const attendees = await this.prisma.meetingAttendee.groupBy({
-      by: ['rsvpStatus'],
+      by: ['rsvp'],
       where: { meeting: { organisationId } },
       _count: true
     });
@@ -60,7 +60,9 @@ export class AnalyticsService {
     };
 
     for (const group of attendees) {
-      engagement[group.rsvpStatus] = group._count;
+      if (group.rsvp) {
+        engagement[group.rsvp] = group._count;
+      }
     }
 
     return engagement;
@@ -71,12 +73,14 @@ export class AnalyticsService {
 
     const now = new Date();
 
+    const nowIsoStr = now.toISOString().split('T')[0];
+
     const [overdueActionItems, pendingMinutes, openConflicts] = await Promise.all([
       this.prisma.minutesActionItem.count({
         where: { 
           minutes: { meeting: { organisationId } },
-          status: { not: 'DONE' },
-          dueDate: { lt: now }
+          status: { not: 'COMPLETED' },
+          dueDate: { lt: nowIsoStr }
         }
       }),
       this.prisma.minutes.count({

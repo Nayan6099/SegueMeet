@@ -100,7 +100,7 @@ export class AgendaService {
               items: {
                 orderBy: { position: 'asc' },
                 include: {
-                  guestAccess: true
+                  accessRules: true
                 }
               },
             },
@@ -112,12 +112,17 @@ export class AgendaService {
 
       if (isGuest) {
         // Filter sections and items
-        meetingData.agendaSections = meetingData.agendaSections.map(section => {
+        const newSections = meetingData.sections.map(section => {
           section.items = section.items.filter(item => 
-            item.guestAccess.some(access => access.memberId === membership.id)
+            item.accessRules.some(access => access.memberId === membership.id)
           );
           return section;
         }).filter(section => section.items.length > 0);
+        
+        return {
+          ...meetingData,
+          sections: newSections
+        };
       }
 
       return meetingData;

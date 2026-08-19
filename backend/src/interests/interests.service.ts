@@ -3,6 +3,7 @@ import {
   InternalServerErrorException,
   Logger,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../common/database/prisma.service';
 import { OrganisationsService } from '../organisations/organisations.service';
