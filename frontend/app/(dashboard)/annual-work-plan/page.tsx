@@ -34,6 +34,9 @@ export default function AnnualWorkPlanPage() {
   const currentRealYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentRealYear);
 
+  const role = user?.memberships?.[0]?.role;
+  const canManage = role === 'BOARD_ADMIN' || role === 'CHAIR' || role === 'SECRETARY';
+
   const { data: plans = [], isPending } = useGetAnnualPlans(orgId, selectedYear);
   const createPlan = useCreateAnnualPlan(orgId, selectedYear);
   const deletePlan = useDeleteAnnualPlan(orgId, selectedYear);
@@ -141,7 +144,7 @@ export default function AnnualWorkPlanPage() {
               ))}
             </SelectContent>
           </Select>
-          {!activePlan && (
+          {canManage && !activePlan && (
             <Button 
               onClick={async () => {
                 if (orgId) {
@@ -175,9 +178,10 @@ export default function AnnualWorkPlanPage() {
             Stay focused on the strategic, long-term priorities that drive your organisation forward.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center gap-4 mb-6 w-full sm:w-auto">
-            <Label 
-              htmlFor="csv-upload" 
+          {canManage && (
+            <div className="flex flex-col sm:flex-row items-center gap-4 mb-6 w-full sm:w-auto">
+              <Label 
+                htmlFor="csv-upload" 
               className={`cursor-pointer w-full sm:w-auto border border-slate-300 text-slate-700 h-10 px-4 flex items-center justify-center gap-2 rounded-md hover:bg-slate-50 transition-colors ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileUp className="w-4 h-4 shrink-0" />}
@@ -207,6 +211,7 @@ export default function AnnualWorkPlanPage() {
               {createPlan.isPending ? "Creating..." : "Create blank plan"}
             </Button>
           </div>
+          )}
 
           <Link href="#" className="flex items-center text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
             Learn more <ExternalLink className="ml-1.5 w-4 h-4" />
@@ -224,53 +229,59 @@ export default function AnnualWorkPlanPage() {
                 {activePlan.items?.length || 0} items scheduled
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <input 
-                id="csv-upload-active"
-                type="file" 
-                accept=".csv"
-                className="hidden" 
-                ref={fileInputRef}
-                onChange={handleFileUpload}
-                disabled={isUploading}
-              />
-              <Label 
-                htmlFor="csv-upload-active" 
-                className={`cursor-pointer h-9 px-4 border border-slate-200 rounded-md bg-white hover:bg-slate-50 text-slate-700 flex items-center text-sm font-medium transition-colors ${isUploading ? 'opacity-50' : ''}`}
-              >
-                {isUploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileUp className="w-4 h-4 mr-2" />}
-                Import CSV
-              </Label>
+            {canManage && (
+              <div className="flex items-center gap-2">
+                <input 
+                  id="csv-upload-active"
+                  type="file" 
+                  accept=".csv"
+                  className="hidden" 
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  disabled={isUploading}
+                />
+                <Label 
+                  htmlFor="csv-upload-active" 
+                  className={`cursor-pointer h-9 px-4 border border-slate-200 rounded-md bg-white hover:bg-slate-50 text-slate-700 flex items-center text-sm font-medium transition-colors ${isUploading ? 'opacity-50' : ''}`}
+                >
+                  {isUploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileUp className="w-4 h-4 mr-2" />}
+                  Import CSV
+                </Label>
 
-              <AlertDialog>
-                <AlertDialogTrigger render={<Button variant="outline" className="h-9 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200" />}>
-                  <div className="flex items-center">
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Reset Entire Plan
-                  </div>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will permanently delete the {selectedYear} annual work plan and all of its items. This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction 
-                      onClick={() => deletePlan.mutate(activePlan.id)}
-                      className="bg-red-600 hover:bg-red-700"
-                    >
-                      {deletePlan.isPending ? "Resetting..." : "Reset Plan"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-              <Button onClick={() => setIsAddModalOpen(true)} className="bg-[#1e1b4b] hover:bg-[#2e2b5b] text-white h-9">
-                + Add Item
-              </Button>
-            </div>
+                <AlertDialog>
+                  <AlertDialogTrigger render={<Button variant="outline" className="h-9 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200" />}>
+                    <div className="flex items-center">
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Reset Entire Plan
+                    </div>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete the entire {selectedYear} work plan and all its items. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={async () => {
+                          if (orgId && activePlan.id) {
+                            await deletePlan.mutateAsync(activePlan.id);
+                          }
+                        }}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        Yes, delete plan
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                <Button onClick={() => setIsAddModalOpen(true)} className="bg-[#1e1b4b] hover:bg-[#2e2b5b] text-white h-9">
+                  + Add Item
+                </Button>
+              </div>
+            )}
           </div>
           
           {activePlan.items?.length > 0 ? (

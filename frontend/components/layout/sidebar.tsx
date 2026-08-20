@@ -43,6 +43,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+import { WorkspaceSelector } from "./workspace-selector";
+import { useGetCommittees } from "@/hooks/use-committees";
+
 const mainNav = [
   { label: "Search", href: "/search", icon: Search },
   { label: "Meetings", href: "/meetings", icon: Calendar },
@@ -69,6 +72,9 @@ export function SidebarInner({ isCollapsed = false, onToggleCollapse }: { isColl
   const [isLoading, setIsLoading] = useState(false);
 
   const currentOrg = user?.memberships?.[0]?.organisation;
+
+  const boards = user?.memberships?.map((m: any) => m.organisation).filter(Boolean) || [];
+  const { data: committees = [] } = useGetCommittees(currentOrg?.id);
 
   const handleAddBoard = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,82 +150,30 @@ export function SidebarInner({ isCollapsed = false, onToggleCollapse }: { isColl
         <div>
           {!isCollapsed && <h3 className="px-3 text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">Boards</h3>}
           
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <button className={cn(
-                  "flex items-center bg-white border border-slate-200 rounded-xl p-2 shadow-sm mb-4 outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
-                  isCollapsed ? "w-10 h-10 justify-center mx-auto" : "w-full justify-between"
-                )}>
-                  <div className="flex items-center gap-3">
-                    <div className={cn("bg-slate-200 rounded-lg shrink-0", isCollapsed ? "w-6 h-6" : "w-10 h-10")}></div>
-                    {!isCollapsed && <span className="font-semibold text-slate-800 text-[15px] whitespace-nowrap truncate">{currentOrg?.name || "My Organisation"}</span>}
-                  </div>
-                  {!isCollapsed && <ChevronDown className="w-4 h-4 text-slate-500 mr-1 shrink-0" />}
-                </button>
+          <WorkspaceSelector
+            currentWorkspace={currentOrg?.name || "My Organisation"}
+            currentWorkspaceId={currentOrg?.id || ""}
+            boards={boards}
+            committees={committees}
+            onSelectWorkspace={(id, name, type) => {
+              if (type === 'board') {
+                if (setActiveOrgId) {
+                  setActiveOrgId(id);
+                  window.location.reload();
+                }
+              } else {
+                // If committee selected, maybe we want to change context? 
+                // For now just route or reload as if it's the context
+                // You mentioned a unified Workspace abstraction earlier, 
+                // but this UI task doesn't change backend schemas yet.
+                // Assuming it sets activeOrgId or similar, for now we log or just navigate:
+                console.log("Selected committee:", id, name);
               }
-            />
-            <DropdownMenuContent align={isCollapsed ? "center" : "start"} side={isCollapsed ? "right" : "bottom"} className="w-[260px] p-2 bg-white rounded-xl shadow-lg border border-slate-100">
-              <div className="relative px-2 py-1.5 mb-2 border-b border-transparent">
-                <Search className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
-                <input 
-                  type="text" 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.stopPropagation()}
-                  placeholder="Search boards & committees.." 
-                  className="w-full pl-8 pr-3 py-1.5 text-sm bg-transparent border-none outline-none placeholder:text-slate-400 text-slate-800"
-                />
-              </div>
-              
-              {user?.memberships?.map((membership: any) => {
-                const org = membership.organisation;
-                if (!org) return null;
-                if (searchQuery && !org.name.toLowerCase().includes(searchQuery.toLowerCase())) return null;
-
-                return (
-                  <DropdownMenuItem 
-                    key={org.id}
-                    onClick={() => {
-                      if (setActiveOrgId) {
-                        setActiveOrgId(org.id);
-                        window.location.reload(); // Quickest way to refetch all queries for the new org
-                      }
-                    }}
-                    className="py-2.5 px-3 rounded-lg hover:bg-slate-50 focus:bg-slate-50 mb-1 cursor-pointer outline-none"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="bg-slate-200 rounded-md shrink-0 w-6 h-6 flex items-center justify-center text-xs font-bold text-slate-600">
-                        {org.name.charAt(0)}
-                      </div>
-                      <span className="font-medium text-slate-800 text-[14px]">{org.name}</span>
-                    </div>
-                  </DropdownMenuItem>
-                );
-              })}
-              
-              <DropdownMenuSeparator className="my-2 bg-slate-100" />
-              
-              <DropdownMenuItem 
-                onClick={() => setTimeout(() => setIsAddBoardOpen(true), 0)}
-                className="py-2.5 px-3 rounded-lg cursor-pointer text-slate-600 focus:text-slate-900 focus:bg-slate-50 outline-none flex items-center"
-              >
-                <div className="flex items-center border border-slate-300 rounded p-0.5 mr-3 shrink-0">
-                  <Plus className="w-3 h-3 text-slate-500" />
-                </div>
-                <span className="font-medium text-[14px]">Add Board</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => setTimeout(() => setIsAddCommitteeOpen(true), 0)}
-                className="py-2.5 px-3 rounded-lg cursor-pointer text-slate-600 focus:text-slate-900 focus:bg-slate-50 outline-none flex items-center"
-              >
-                <div className="flex items-center border border-slate-300 rounded p-0.5 mr-3 shrink-0">
-                  <Plus className="w-3 h-3 text-slate-500" />
-                </div>
-                <span className="font-medium text-[14px]">Add Committee</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            }}
+            onAddBoard={() => setTimeout(() => setIsAddBoardOpen(true), 0)}
+            onAddCommittee={() => setTimeout(() => setIsAddCommitteeOpen(true), 0)}
+            isCollapsed={isCollapsed}
+          />
 
           <nav className="space-y-1">
             {mainNav.map((item) => {

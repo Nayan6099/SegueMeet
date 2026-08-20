@@ -72,6 +72,19 @@ export class OrganisationsController {
     return this.organisationsService.update(id, dto, user);
   }
 
+  /**
+   * DELETE /organisations/:id
+   *
+   * Deletes an organisation. Caller must be a BOARD_ADMIN.
+   */
+  @Delete(':id')
+  deleteOrganisation(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.organisationsService.deleteOrganisation(id, user);
+  }
+
   // ─────────────────────────────────────────────
   // MEMBERS
   // ─────────────────────────────────────────────

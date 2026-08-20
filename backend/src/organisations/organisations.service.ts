@@ -155,6 +155,37 @@ export class OrganisationsService {
     return updatedOrg;
   }
 
+  async deleteOrganisation(
+    organisationId: string,
+    requestingUser: AuthenticatedUser,
+  ) {
+    // We require the same high level permission as updating
+    await this.requireRole(organisationId, requestingUser.id, ['BOARD_ADMIN']);
+
+    const org = await this.prisma.organisation.findUnique({
+      where: { id: organisationId },
+      select: { id: true },
+    });
+    if (!org) {
+      throw new NotFoundException('Organisation not found');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await this.auditService.logTx(tx, {
+        organisationId,
+        actorId: requestingUser.id,
+        action: 'organisation.deleted',
+        entityType: 'Organisation',
+        entityId: organisationId,
+        payload: { organisationId },
+      });
+
+      return tx.organisation.delete({
+        where: { id: organisationId },
+      });
+    });
+  }
+
   // ─────────────────────────────────────────────
   // MEMBER MANAGEMENT
   // ─────────────────────────────────────────────

@@ -10,6 +10,10 @@ export interface AuthenticatedUser {
   id: string;
   email: string;
   name: string;
+  avatarUrl?: string | null;
+  mobileNumber?: string | null;
+  title?: string | null;
+  suffix?: string | null;
   memberships: {
     organisationId: string;
     role: UserRole;

@@ -6,12 +6,15 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomBytes } from 'crypto';
 import { OrganisationRole } from '@prisma/client';
 import { PrismaService } from '../common/database/prisma.service';
 import { TokenBlocklistService } from './token-blocklist.service';
+import { MailService } from '../mail/mail.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import {
@@ -19,6 +22,8 @@ import {
   type AuthenticatedUser,
   SAFE_USER_SELECT,
 } from './auth.types';
+import { v2 as cloudinary } from 'cloudinary';
+import * as streamifier from 'streamifier';
 
 /** bcrypt cost factor — 12 rounds is the recommended production minimum. */
 const BCRYPT_ROUNDS = 12;
@@ -29,7 +34,14 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly tokenBlocklistService: TokenBlocklistService,
-  ) {}
+    private readonly mailService: MailService,
+  ) {
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+  }
 
   // ─────────────────────────────────────────────
   // REGISTER
@@ -215,13 +227,106 @@ export class AuthService {
       where: { id: userId },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.mobileNumber !== undefined && { mobileNumber: dto.mobileNumber }),
+        ...(dto.title !== undefined && { title: dto.title }),
+        ...(dto.suffix !== undefined && { suffix: dto.suffix }),
       },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-      }
+      select: SAFE_USER_SELECT
     });
+  }
+
+  async uploadAvatar(userId: string, file: Express.Multer.File) {
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'seguemeet_avatars',
+          resource_type: 'image',
+          transformation: [{ width: 500, height: 500, crop: 'limit' }],
+        },
+        async (error, result) => {
+          if (error) {
+            return reject(new InternalServerErrorException('Failed to upload image'));
+          }
+          if (!result) {
+            return reject(new InternalServerErrorException('No result from Cloudinary'));
+          }
+
+          try {
+            const updatedUser = await this.prisma.user.update({
+              where: { id: userId },
+              data: { avatarUrl: result.secure_url },
+              select: SAFE_USER_SELECT,
+            });
+            resolve(updatedUser);
+          } catch (dbError) {
+            reject(new InternalServerErrorException('Failed to update avatar in database'));
+          }
+        },
+      );
+
+      streamifier.createReadStream(file.buffer).pipe(uploadStream);
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  // PASSWORD RESET
+  // ─────────────────────────────────────────────
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const email = dto.email.toLowerCase().trim();
+
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    // Silently return success to prevent email enumeration
+    if (!user) {
+      return { success: true };
+    }
+
+    // Generate secure token
+    const resetToken = randomBytes(32).toString('hex');
+    const resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetPasswordToken: resetToken,
+        resetPasswordExpires,
+      },
+    });
+
+    await this.mailService.sendPasswordResetEmail(user.email, resetToken);
+
+    return { success: true };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        resetPasswordToken: dto.token,
+        resetPasswordExpires: {
+          gt: new Date(),
+        },
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid or expired password reset token');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+      },
+    });
+
+    return { success: true };
   }
 
   // ─────────────────────────────────────────────

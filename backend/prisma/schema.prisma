@@ -106,8 +106,16 @@ model User {
   id           String   @id @default(uuid())
   email        String   @unique
   name         String
+  mobileNumber String?
+  title        String?
+  suffix       String?
+  avatarUrl    String?
   /// Bcrypt-hashed password — set once auth module is built.
   passwordHash String?
+  /// Token used for password resets
+  resetPasswordToken   String?
+  /// Expiration time for the password reset token
+  resetPasswordExpires DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

@@ -122,6 +122,38 @@ export class MailService {
     }
   }
 
+  async sendPasswordResetEmail(to: string, resetToken: string) {
+    try {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
+      
+      const htmlContent = `
+        <h2>Password Reset Request</h2>
+        <p>You recently requested to reset your password for your SegueMeet account.</p>
+        <p>Click the link below to reset it. This link is valid for 1 hour.</p>
+        <br/>
+        <a href="${resetUrl}" style="padding: 10px 15px; background-color: #000; color: #fff; text-decoration: none; border-radius: 5px;">Reset your password</a>
+        <br/><br/>
+        <p>If you did not request a password reset, please ignore this email or reply to let us know. This password reset is only valid for the next hour.</p>
+        <br/>
+        <p>Thanks,<br/>The SegueMeet Team</p>
+      `;
+
+      const info = await this.transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to,
+        subject: 'Reset your SegueMeet password',
+        html: htmlContent,
+      });
+
+      this.logger.log(`Password reset email sent to ${to} (ID: ${info.messageId})`);
+      return { success: true, messageId: info.messageId };
+    } catch (error: any) {
+      this.logger.error(`Failed to send password reset email to ${to}: ${error.message}`);
+      return { success: false, error };
+    }
+  }
+
   async sendMeetingUpdate(
     to: string,
     meeting: any,

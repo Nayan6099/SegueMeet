@@ -8,9 +8,10 @@ import { Loader2, Save, Plus } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
-import { useState, useEffect } from "react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useState, useEffect, useRef } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -23,6 +24,8 @@ export default function ProfilePage() {
   const [mobileNumber, setMobileNumber] = useState("");
   const [title, setTitle] = useState("");
   const [suffix, setSuffix] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: profile } = useQuery({
     queryKey: ["profile"],
@@ -41,6 +44,7 @@ export default function ProfilePage() {
       setMobileNumber(profile.mobileNumber || "");
       setTitle(profile.title || "");
       setSuffix(profile.suffix || "");
+      setAvatarUrl(profile.avatarUrl || null);
     }
   }, [profile]);
 
@@ -55,9 +59,45 @@ export default function ProfilePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["profile"] });
+      toast.success("Profile updated successfully!");
       window.location.reload(); // Refresh to update user context in topbar globally
     },
+    onError: () => {
+      toast.error("Failed to update profile.");
+    }
   });
+
+  const uploadAvatarMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await api.post("/auth/me/avatar", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      return res.data;
+    },
+    onSuccess: (data) => {
+      setAvatarUrl(data.avatarUrl);
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      toast.success("Profile picture updated!");
+    },
+    onError: () => {
+      toast.error("Failed to upload profile picture.");
+    },
+  });
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 1024 * 1024) {
+        toast.error("File is too large. Max 1MB.");
+        return;
+      }
+      uploadAvatarMutation.mutate(file);
+    }
+  };
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-8">
@@ -149,11 +189,27 @@ export default function ProfilePage() {
               </div>
               <div className="col-span-2 flex items-center gap-4">
                 <Avatar className="h-12 w-12 bg-blue-100 text-blue-700">
+                  {avatarUrl && <AvatarImage src={avatarUrl} alt="Avatar" />}
                   <AvatarFallback className="font-semibold text-sm">
                     {firstName.charAt(0).toUpperCase()}{lastName.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <Button variant="secondary" className="h-8 text-xs font-medium">Choose</Button>
+                <input 
+                  type="file" 
+                  accept=".jpg,.jpeg,.png,.gif" 
+                  className="hidden" 
+                  ref={fileInputRef} 
+                  onChange={handleAvatarChange} 
+                />
+                <Button 
+                  variant="secondary" 
+                  className="h-8 text-xs font-medium"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadAvatarMutation.isPending}
+                >
+                  {uploadAvatarMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : null}
+                  Choose
+                </Button>
                 <span className="text-xs text-slate-500">JPG, GIF or PNG. 1MB Max.</span>
               </div>
             </div>

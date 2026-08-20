@@ -1,6 +1,6 @@
 "use client";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Search, Bell, Check, Loader2, Menu } from "lucide-react";
 import Link from "next/link";
@@ -108,6 +108,7 @@ export function Topbar() {
         <DropdownMenu>
           <DropdownMenuTrigger render={<button className="outline-none" />}>
             <Avatar className="h-8 w-8 bg-blue-100 text-blue-700 hover:opacity-80 transition-opacity">
+              {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt="Avatar" />}
               <AvatarFallback className="font-semibold text-xs">
                 {user?.name?.charAt(0).toUpperCase() || "U"}
               </AvatarFallback>

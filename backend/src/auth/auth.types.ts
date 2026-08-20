@@ -21,6 +21,10 @@ export interface AuthenticatedUser {
   id: string;
   email: string;
   name: string;
+  mobileNumber?: string | null;
+  title?: string | null;
+  suffix?: string | null;
+  avatarUrl?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,6 +34,10 @@ export const SAFE_USER_SELECT = {
   id: true,
   email: true,
   name: true,
+  mobileNumber: true,
+  title: true,
+  suffix: true,
+  avatarUrl: true,
   createdAt: true,
   updatedAt: true,
 } as const;
