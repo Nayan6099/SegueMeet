@@ -18,4 +18,8 @@ export class QueryDocumentsDto {
   @IsOptional()
   @IsUUID()
   agendaItemId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  committeeId?: string;
 }

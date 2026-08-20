@@ -30,26 +30,29 @@ export function AddPersonModal({
   organisationId: string;
   trigger?: React.ReactNode;
 }) {
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [designation, setDesignation] = useState("");
   const [role, setRole] = useState("BOARD_MEMBER");
   
   const queryClient = useQueryClient();
 
   const addMemberMutation = useMutation({
     mutationFn: async () => {
-      await api.post(`/organisations/${organisationId}/members`, {
-        name,
+      const res = await api.post(`/organisations/${organisationId}/members`, {
         email,
+        designation: designation.trim() || undefined,
         role,
       });
+      return res.data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["members", organisationId] });
-      toast.success("Person added successfully!");
+      
+      toast.success(`${data.user?.name || email} has been added to the board!`, { duration: 5000 });
+      
       onOpenChange(false);
-      setName("");
       setEmail("");
+      setDesignation("");
       setRole("BOARD_MEMBER");
     },
     onError: (error: any) => {
@@ -58,8 +61,8 @@ export function AddPersonModal({
   });
 
   const handleSave = () => {
-    if (!name.trim() || !email.trim()) {
-      toast.error("Name and Email are required");
+    if (!email.trim()) {
+      toast.error("Email is required");
       return;
     }
     addMemberMutation.mutate();
@@ -70,32 +73,35 @@ export function AddPersonModal({
       {trigger && <DialogTrigger render={trigger as React.ReactElement} />}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add Person</DialogTitle>
+          <DialogTitle>Add Existing SegueMeet User</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label>Name</Label>
-            <Input 
-              placeholder="e.g. Jane Doe"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Email</Label>
+            <Label>Registered Email</Label>
             <Input 
               type="email"
               placeholder="e.g. jane@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
+            <p className="text-xs text-slate-500">
+              The person must already have a SegueMeet account with this email.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Designation / Position Title (Optional)</Label>
+            <Input 
+              placeholder="e.g. Director, CTO, Advisor"
+              value={designation}
+              onChange={(e) => setDesignation(e.target.value)}
+            />
           </div>
 
           <div className="space-y-2">
             <Label>Role</Label>
-            <Select value={role} onValueChange={(val) => setRole(val || "BOARD_MEMBER")}>
+            <Select value={role} onValueChange={(val) => val && setRole(val)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a role" />
               </SelectTrigger>
@@ -113,7 +119,7 @@ export function AddPersonModal({
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={addMemberMutation.isPending} className="bg-emerald-500 hover:bg-emerald-600">
-            {addMemberMutation.isPending ? "Adding..." : "Add Person"}
+            {addMemberMutation.isPending ? "Adding..." : "Add to Board"}
           </Button>
         </div>
       </DialogContent>

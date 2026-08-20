@@ -10,6 +10,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/auth.types';
@@ -49,6 +50,7 @@ export class OrganisationsController {
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   create(
     @Body() dto: CreateOrganisationDto,
     @CurrentUser() user: AuthenticatedUser,
@@ -92,6 +94,7 @@ export class OrganisationsController {
    */
   @Post(':id/members')
   @HttpCode(HttpStatus.CREATED)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   addMember(
     @Param('id') id: string,
     @Body() dto: AddMemberDto,
@@ -99,6 +102,8 @@ export class OrganisationsController {
   ) {
     return this.organisationsService.addMember(id, dto, user);
   }
+
+
 
   /**
    * PATCH /organisations/:id/members/:userId
@@ -110,7 +115,7 @@ export class OrganisationsController {
   updateMember(
     @Param('id') id: string,
     @Param('userId') userId: string,
-    @Body() dto: { role?: any; tenureEndDate?: string | null },
+    @Body() dto: { role?: any; tenureEndDate?: string | null; designation?: string | null },
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.organisationsService.updateMember(id, userId, dto, user);

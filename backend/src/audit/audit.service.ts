@@ -2,6 +2,7 @@ import { Injectable, Logger, InternalServerErrorException, Inject, forwardRef } 
 import { PrismaService } from '../common/database/prisma.service';
 import { OrganisationsService } from '../organisations/organisations.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class AuditService {
@@ -12,6 +13,30 @@ export class AuditService {
     @Inject(forwardRef(() => OrganisationsService))
     private readonly organisationsService: OrganisationsService,
   ) {}
+
+  /**
+   * Logs an audit event transactionally.
+   * Throws errors so the transaction can rollback.
+   */
+  async logTx(tx: Prisma.TransactionClient, params: {
+    organisationId: string;
+    actorId: string | null;
+    action: string;
+    entityType: string;
+    entityId: string;
+    payload?: object;
+  }) {
+    await tx.auditLog.create({
+      data: {
+        organisationId: params.organisationId,
+        actorId: params.actorId,
+        action: params.action,
+        entityType: params.entityType,
+        entityId: params.entityId,
+        payload: params.payload ? (params.payload as any) : null,
+      },
+    });
+  }
 
   /**
    * Logs an audit event asynchronously. Never throws, even on failure.

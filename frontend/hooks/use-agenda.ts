@@ -59,7 +59,7 @@ export function useDeleteAgendaSection(meetingId: string) {
 export function useCreateAgendaItem(meetingId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ sectionId, data }: { sectionId: string; data: { title: string; purpose?: string; presenter?: string; durationMinutes?: number; position?: number } }) => {
+    mutationFn: async ({ sectionId, data }: { sectionId: string; data: { title: string; purpose?: string; presenter?: string; durationMinutes?: number; position?: number; planItemId?: string | null } }) => {
       const res = await api.post(`/agenda/sections/${sectionId}/items`, data);
       return res.data;
     },
@@ -73,7 +73,7 @@ export function useCreateAgendaItem(meetingId: string) {
 export function useUpdateAgendaItem(meetingId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ itemId, ...data }: { itemId: string; title?: string; purpose?: string; presenter?: string; durationMinutes?: number; position?: number }) => {
+    mutationFn: async ({ itemId, ...data }: { itemId: string; title?: string; purpose?: string; presenter?: string; durationMinutes?: number; position?: number; planItemId?: string | null }) => {
       const res = await api.patch(`/agenda/items/${itemId}`, data);
       return res.data;
     },

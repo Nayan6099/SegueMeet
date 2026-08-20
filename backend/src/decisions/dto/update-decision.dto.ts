@@ -1,4 +1,5 @@
-import { IsOptional, IsString, IsDateString } from 'class-validator';
+import { IsOptional, IsString, IsDateString, IsUUID, IsBoolean, IsEnum } from 'class-validator';
+import { DecisionStatus } from '@prisma/client';
 
 export class UpdateDecisionDto {
   @IsOptional()
@@ -16,4 +17,16 @@ export class UpdateDecisionDto {
   @IsOptional()
   @IsDateString()
   votingEndsAt?: string; // ISO datetime
+
+  @IsOptional()
+  @IsEnum(DecisionStatus)
+  status?: DecisionStatus;
+
+  @IsOptional()
+  @IsUUID()
+  committeeId?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  committeeVisible?: boolean;
 }

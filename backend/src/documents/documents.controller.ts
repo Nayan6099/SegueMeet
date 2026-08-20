@@ -13,6 +13,8 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  Res,
+  StreamableFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DocumentsService } from './documents.service';
@@ -137,6 +139,24 @@ export class DocumentsController {
   }
 
   /**
+   * GET /documents/:id/download
+   * Proxies the document stream securely through the backend.
+   */
+  @Get(':id/download')
+  async download(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Res({ passthrough: true }) res: any,
+  ) {
+    const { stream, mimeType, originalName } = await this.documentsService.downloadDocument(id, user);
+    res.set({
+      'Content-Type': mimeType,
+      'Content-Disposition': `attachment; filename="${originalName}"`,
+    });
+    return new StreamableFile(stream as any);
+  }
+
+  /**
    * PATCH /documents/:id
    * Updates editable metadata fields. organisationId cannot be changed.
    */
@@ -157,5 +177,30 @@ export class DocumentsController {
   @HttpCode(HttpStatus.OK)
   remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.documentsService.deleteDocument(id, user);
+  }
+
+  // ─────────────────────────────────────────────
+  // SHARING
+  // ─────────────────────────────────────────────
+
+  @Post(':id/access')
+  @HttpCode(HttpStatus.OK)
+  shareDocument(
+    @Param('id') id: string,
+    @Body('userId') targetUserId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    if (!targetUserId) throw new BadRequestException('userId is required');
+    return this.documentsService.shareDocument(id, targetUserId, user);
+  }
+
+  @Delete(':id/access/:userId')
+  @HttpCode(HttpStatus.OK)
+  revokeDocumentAccess(
+    @Param('id') id: string,
+    @Param('userId') targetUserId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.documentsService.revokeDocumentAccess(id, targetUserId, user);
   }
 }

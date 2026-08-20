@@ -15,6 +15,7 @@ import { QueryDocumentsDto } from './dto/query-documents.dto';
 import { AuditService } from '../audit/audit.service';
 import { v2 as cloudinary } from 'cloudinary';
 import * as streamifier from 'streamifier';
+import { validateDocumentUpload, sanitizeFilename } from './documents.validator';
 
 import { CAN_MANAGE_DOCUMENTS } from '../common/auth/roles.constants';
 
@@ -128,36 +129,42 @@ export class DocumentsService {
     }
 
     try {
-      const document = await this.prisma.document.create({
-        data: {
-          organisationId: dto.organisationId,
-          fileName: dto.fileName,
-          originalName: dto.originalName,
-          mimeType: dto.mimeType,
-          sizeBytes: dto.sizeBytes,
-          storagePath: dto.storagePath,
-          meetingId: dto.meetingId ?? null,
-          agendaItemId: dto.agendaItemId ?? null,
-          folderId: dto.folderId ?? null,
-          uploadedById: user.id,
-          versions: {
-            create: {
-              version: 1,
-              storagePath: dto.storagePath,
-              sizeBytes: dto.sizeBytes,
-              uploadedById: user.id,
+      const document = await this.prisma.$transaction(async (tx) => {
+        const d = await tx.document.create({
+          data: {
+            organisationId: dto.organisationId,
+            fileName: dto.fileName,
+            originalName: dto.originalName,
+            mimeType: dto.mimeType,
+            sizeBytes: dto.sizeBytes,
+            storagePath: dto.storagePath,
+            meetingId: dto.meetingId ?? null,
+            agendaItemId: dto.agendaItemId ?? null,
+            folderId: dto.folderId ?? null,
+            committeeId: dto.committeeId ?? null,
+            committeeVisible: dto.committeeVisible ?? false,
+            uploadedById: user.id,
+            versions: {
+              create: {
+                version: 1,
+                storagePath: dto.storagePath,
+                sizeBytes: dto.sizeBytes,
+                uploadedById: user.id,
+              },
             },
           },
-        },
-      });
+        });
 
-      this.auditService.log({
-        organisationId: dto.organisationId,
-        actorId: user.id,
-        action: 'document.created',
-        entityType: 'Document',
-        entityId: document.id,
-        payload: { fileName: dto.fileName, originalName: dto.originalName },
+        await this.auditService.logTx(tx, {
+          organisationId: dto.organisationId,
+          actorId: user.id,
+          action: 'document.created',
+          entityType: 'Document',
+          entityId: d.id,
+          payload: { fileName: dto.fileName, originalName: dto.originalName },
+        });
+
+        return d;
       });
 
       return document;
@@ -181,6 +188,9 @@ export class DocumentsService {
     folderId: string | undefined,
     user: AuthenticatedUser,
   ) {
+    validateDocumentUpload(file);
+    file.originalname = sanitizeFilename(file.originalname);
+
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
@@ -216,6 +226,7 @@ export class DocumentsService {
             );
             resolve(doc);
           } catch (dbError) {
+            await this.deleteFromCloudinaryByUrl(result.secure_url);
             reject(dbError);
           }
         },
@@ -233,6 +244,9 @@ export class DocumentsService {
     file: Express.Multer.File,
     user: AuthenticatedUser,
   ) {
+    validateDocumentUpload(file);
+    file.originalname = sanitizeFilename(file.originalname);
+
     const document = await this.resolveDocument(documentId);
     await this.organisationsService.requireRole(
       document.organisationId,
@@ -264,36 +278,41 @@ export class DocumentsService {
 
           try {
             // Update document's main storagePath and sizeBytes, and create the new version
-            const updatedDoc = await this.prisma.document.update({
-              where: { id: documentId },
-              data: {
-                storagePath: result.secure_url,
-                sizeBytes: file.size,
-                originalName: file.originalname,
-                mimeType: file.mimetype,
-                versions: {
-                  create: {
-                    version: nextVersionNum,
-                    storagePath: result.secure_url,
-                    sizeBytes: file.size,
-                    uploadedById: user.id,
+            const updatedDoc = await this.prisma.$transaction(async (tx) => {
+              const d = await tx.document.update({
+                where: { id: documentId },
+                data: {
+                  storagePath: result.secure_url,
+                  sizeBytes: file.size,
+                  originalName: file.originalname,
+                  mimeType: file.mimetype,
+                  versions: {
+                    create: {
+                      version: nextVersionNum,
+                      storagePath: result.secure_url,
+                      sizeBytes: file.size,
+                      uploadedById: user.id,
+                    },
                   },
                 },
-              },
-              include: { versions: true },
-            });
+                include: { versions: true },
+              });
 
-            this.auditService.log({
-              organisationId: document.organisationId,
-              actorId: user.id,
-              action: 'document.version_created',
-              entityType: 'Document',
-              entityId: document.id,
-              payload: { version: nextVersionNum, originalName: file.originalname },
+              await this.auditService.logTx(tx, {
+                organisationId: document.organisationId,
+                actorId: user.id,
+                action: 'document.version_created',
+                entityType: 'Document',
+                entityId: document.id,
+                payload: { version: nextVersionNum, originalName: file.originalname },
+              });
+
+              return d;
             });
 
             resolve(updatedDoc);
           } catch (dbError) {
+            await this.deleteFromCloudinaryByUrl(result.secure_url);
             reject(dbError);
           }
         },
@@ -316,17 +335,21 @@ export class DocumentsService {
 
   async createFolder(organisationId: string, name: string, user: AuthenticatedUser) {
     const membership = await this.organisationsService.requireRole(organisationId, user.id, CAN_MANAGE_DOCUMENTS);
-    const folder = await this.prisma.documentFolder.create({
-      data: { organisationId, name },
-    });
+    const folder = await this.prisma.$transaction(async (tx) => {
+      const f = await tx.documentFolder.create({
+        data: { organisationId, name },
+      });
 
-    this.auditService.log({
-      organisationId,
-      actorId: user.id,
-      action: 'document_folder.created',
-      entityType: 'DocumentFolder',
-      entityId: folder.id,
-      payload: { name },
+      await this.auditService.logTx(tx, {
+        organisationId,
+        actorId: user.id,
+        action: 'document_folder.created',
+        entityType: 'DocumentFolder',
+        entityId: f.id,
+        payload: { name },
+      });
+
+      return f;
     });
 
     return folder;
@@ -346,14 +369,65 @@ export class DocumentsService {
       user.id,
     );
 
+    const isManager = await this.organisationsService.hasAnyRole(
+      query.organisationId,
+      user.id,
+      CAN_MANAGE_DOCUMENTS,
+    );
+
     try {
+      const baseWhere: any = {
+        organisationId: query.organisationId,
+        ...(query.meetingId && { meetingId: query.meetingId }),
+        ...(query.agendaItemId && { agendaItemId: query.agendaItemId }),
+        ...(query.committeeId && { committeeId: query.committeeId }),
+      };
+
+      // Non-managers can only see documents they uploaded, were explicitly granted access to,
+      // or belong to meetings they are attendees of, or organisation-wide documents.
+      if (!isManager) {
+        baseWhere.OR = [
+          { uploadedById: user.id },
+          { accessRules: { some: { userId: user.id } } },
+          // Organisation-wide: no explicit access rules, no meeting, no agenda item
+          {
+            accessRules: { none: {} },
+            meetingId: null,
+            agendaItemId: null,
+          },
+          // Meeting attendees can see the meeting's documents (assuming no explicit access rules to override)
+          {
+            accessRules: { none: {} },
+            meeting: {
+              attendees: { some: { userId: user.id } }
+            }
+          },
+          // Agenda item attendees can see agenda item docs
+          {
+            accessRules: { none: {} },
+            agendaItem: {
+              section: {
+                meeting: {
+                  attendees: { some: { userId: user.id } }
+                }
+              }
+            }
+          },
+          // Committee visibility
+          {
+            accessRules: { none: {} },
+            committeeVisible: true,
+            committee: {
+              members: { some: { userId: user.id } }
+            }
+          }
+        ];
+      }
+
       return await this.prisma.document.findMany({
-        where: {
-          organisationId: query.organisationId,
-          // Optional additional filters — safe because they sit inside the
-          // already-tenant-scoped organisationId clause
-          ...(query.meetingId && { meetingId: query.meetingId }),
-          ...(query.agendaItemId && { agendaItemId: query.agendaItemId }),
+        where: baseWhere,
+        include: {
+          uploadedBy: { select: { id: true, name: true, email: true } }
         },
         orderBy: { createdAt: 'desc' },
       });
@@ -384,7 +458,101 @@ export class DocumentsService {
       user.id,
     );
 
-    return doc;
+    const isManager = await this.organisationsService.hasAnyRole(
+      doc.organisationId,
+      user.id,
+      CAN_MANAGE_DOCUMENTS,
+    );
+
+    if (!isManager) {
+      const baseWhere: any = { id };
+      baseWhere.OR = [
+        { uploadedById: user.id },
+        { accessRules: { some: { userId: user.id } } },
+        {
+          accessRules: { none: {} },
+          meetingId: null,
+          agendaItemId: null,
+        },
+        {
+          accessRules: { none: {} },
+          meeting: {
+            attendees: { some: { userId: user.id } }
+          }
+        },
+        {
+          accessRules: { none: {} },
+          agendaItem: {
+            section: {
+              meeting: {
+                attendees: { some: { userId: user.id } }
+              }
+            }
+          }
+        },
+        {
+          accessRules: { none: {} },
+          committeeVisible: true,
+          committee: {
+            members: { some: { userId: user.id } }
+          }
+        }
+      ];
+
+      const authorizedDoc = await this.prisma.document.findFirst({
+        where: baseWhere,
+      });
+
+      if (!authorizedDoc) {
+        throw new ForbiddenException('You do not have permission to access this document');
+      }
+    }
+
+    // Re-fetch to include uploadedBy
+    const finalDoc = await this.prisma.document.findUnique({
+      where: { id },
+      include: {
+        uploadedBy: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    if (!finalDoc) {
+      throw new NotFoundException('Document not found');
+    }
+
+    return finalDoc;
+  }
+
+  // ─────────────────────────────────────────────
+  // DOWNLOAD (PROXY)
+  // ─────────────────────────────────────────────
+
+  /**
+   * Retrieves the document and streams it securely through the backend.
+   * This ensures Cloudinary URLs are not exposed, and P2 authorization is strictly enforced.
+   */
+  async downloadDocument(id: string, user: AuthenticatedUser): Promise<{ stream: NodeJS.ReadableStream, mimeType: string, originalName: string }> {
+    const doc = await this.getDocumentById(id, user);
+
+    return new Promise((resolve, reject) => {
+      // Use native Node https module to proxy the stream
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const https = require('https');
+      
+      https.get(doc.storagePath, (response: any) => {
+        if (response.statusCode !== 200) {
+          return reject(new InternalServerErrorException('Failed to fetch file from remote storage'));
+        }
+        resolve({
+          stream: response,
+          mimeType: doc.mimeType,
+          originalName: doc.originalName,
+        });
+      }).on('error', (err: any) => {
+        this.logger.error(`Error downloading file ${id}`, err);
+        reject(new InternalServerErrorException('Error downloading file'));
+      });
+    });
   }
 
   // ─────────────────────────────────────────────
@@ -423,33 +591,39 @@ export class DocumentsService {
     }
 
     try {
-      const updated = await this.prisma.document.update({
-        where: { id },
-        data: {
-          ...(dto.fileName !== undefined && { fileName: dto.fileName }),
-          ...(dto.originalName !== undefined && {
-            originalName: dto.originalName,
-          }),
-          ...(dto.mimeType !== undefined && { mimeType: dto.mimeType }),
-          ...(dto.sizeBytes !== undefined && { sizeBytes: dto.sizeBytes }),
-          ...(dto.storagePath !== undefined && {
-            storagePath: dto.storagePath,
-          }),
-          // meetingId and agendaItemId may be explicitly nulled to unlink
-          ...(dto.meetingId !== undefined && { meetingId: dto.meetingId }),
-          ...(dto.agendaItemId !== undefined && {
-            agendaItemId: dto.agendaItemId,
-          }),
-        },
-      });
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const u = await tx.document.update({
+          where: { id },
+          data: {
+            ...(dto.fileName !== undefined && { fileName: dto.fileName }),
+            ...(dto.originalName !== undefined && {
+              originalName: dto.originalName,
+            }),
+            ...(dto.mimeType !== undefined && { mimeType: dto.mimeType }),
+            ...(dto.sizeBytes !== undefined && { sizeBytes: dto.sizeBytes }),
+            ...(dto.storagePath !== undefined && {
+              storagePath: dto.storagePath,
+            }),
+            // meetingId and agendaItemId may be explicitly nulled to unlink
+            ...(dto.meetingId !== undefined && { meetingId: dto.meetingId }),
+            ...(dto.agendaItemId !== undefined && {
+              agendaItemId: dto.agendaItemId,
+            }),
+            ...(dto.committeeId !== undefined && { committeeId: dto.committeeId }),
+            ...(dto.committeeVisible !== undefined && { committeeVisible: dto.committeeVisible }),
+          },
+        });
 
-      this.auditService.log({
-        organisationId: doc.organisationId,
-        actorId: user.id,
-        action: 'document.updated',
-        entityType: 'Document',
-        entityId: id,
-        payload: { fileName: dto.fileName, originalName: dto.originalName },
+        await this.auditService.logTx(tx, {
+          organisationId: doc.organisationId,
+          actorId: user.id,
+          action: 'document.updated',
+          entityType: 'Document',
+          entityId: id,
+          payload: { fileName: dto.fileName, originalName: dto.originalName },
+        });
+
+        return u;
       });
 
       return updated;
@@ -473,7 +647,11 @@ export class DocumentsService {
    * Does NOT delete the associated Meeting, AgendaItem, or Organisation.
    */
   async deleteDocument(id: string, user: AuthenticatedUser) {
-    const doc = await this.resolveDocument(id);
+    const doc = await this.prisma.document.findUnique({
+      where: { id },
+      include: { versions: true }
+    });
+    if (!doc) throw new NotFoundException('Document not found');
 
     const membership = await this.organisationsService.requireRole(
       doc.organisationId,
@@ -482,15 +660,24 @@ export class DocumentsService {
     );
 
     try {
-      await this.prisma.document.delete({ where: { id } });
+      await this.prisma.$transaction(async (tx) => {
+        await tx.document.delete({ where: { id } });
 
-      this.auditService.log({
-        organisationId: doc.organisationId,
-        actorId: user.id,
-        action: 'document.deleted',
-        entityType: 'Document',
-        entityId: id,
+        await this.auditService.logTx(tx, {
+          organisationId: doc.organisationId,
+          actorId: user.id,
+          action: 'document.deleted',
+          entityType: 'Document',
+          entityId: id,
+        });
       });
+
+      // Cleanup Cloudinary storage to prevent orphans
+      for (const version of doc.versions) {
+        if (version.storagePath) {
+          await this.deleteFromCloudinaryByUrl(version.storagePath);
+        }
+      }
 
       return { message: 'Document deleted successfully' };
     } catch (error) {
@@ -499,6 +686,124 @@ export class DocumentsService {
         error instanceof Error ? error.stack : String(error),
       );
       throw new InternalServerErrorException('Failed to delete document');
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // SHARING
+  // ─────────────────────────────────────────────
+
+  async shareDocument(id: string, targetUserId: string, user: AuthenticatedUser) {
+    const doc = await this.getDocumentById(id, user);
+
+    const isManager = await this.organisationsService.hasAnyRole(
+      doc.organisationId,
+      user.id,
+      CAN_MANAGE_DOCUMENTS
+    );
+
+    if (!isManager && doc.uploadedById !== user.id) {
+      throw new ForbiddenException('Only the uploader or an admin can share this document');
+    }
+
+    // Verify target user is in the organisation
+    await this.organisationsService.requireMembership(doc.organisationId, targetUserId);
+
+    const access = await this.prisma.$transaction(async (tx) => {
+      const a = await tx.documentAccess.upsert({
+        where: {
+          documentId_userId: { documentId: id, userId: targetUserId }
+        },
+        update: {},
+        create: {
+          documentId: id,
+          userId: targetUserId
+        }
+      });
+
+      await this.auditService.logTx(tx, {
+        organisationId: doc.organisationId,
+        actorId: user.id,
+        action: 'document.shared',
+        entityType: 'Document',
+        entityId: id,
+        payload: { targetUserId }
+      });
+
+      return a;
+    });
+
+    return access;
+  }
+
+  async revokeDocumentAccess(id: string, targetUserId: string, user: AuthenticatedUser) {
+    const doc = await this.getDocumentById(id, user);
+
+    const isManager = await this.organisationsService.hasAnyRole(
+      doc.organisationId,
+      user.id,
+      CAN_MANAGE_DOCUMENTS
+    );
+
+    if (!isManager && doc.uploadedById !== user.id) {
+      throw new ForbiddenException('Only the uploader or an admin can revoke access to this document');
+    }
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.documentAccess.delete({
+          where: {
+            documentId_userId: { documentId: id, userId: targetUserId }
+          }
+        });
+
+        await this.auditService.logTx(tx, {
+          organisationId: doc.organisationId,
+          actorId: user.id,
+          action: 'document.access_revoked',
+          entityType: 'Document',
+          entityId: id,
+          payload: { targetUserId }
+        });
+      });
+    } catch (e) {
+      // Ignore if not found
+    }
+
+    return { message: 'Access revoked' };
+  }
+
+  // ─────────────────────────────────────────────
+  // CLOUDINARY UTILS
+  // ─────────────────────────────────────────────
+
+  private extractPublicIdFromUrl(url: string): string | null {
+    if (!url || !url.includes('cloudinary.com')) return null;
+    try {
+      const parts = url.split('/upload/');
+      if (parts.length !== 2) return null;
+      const pathPart = parts[1];
+      const pathWithoutVersion = pathPart.replace(/^v\d+\//, '');
+      const lastDotIndex = pathWithoutVersion.lastIndexOf('.');
+      if (lastDotIndex === -1) return pathWithoutVersion;
+      return pathWithoutVersion.substring(0, lastDotIndex);
+    } catch {
+      return null;
+    }
+  }
+
+  private async deleteFromCloudinaryByUrl(url: string) {
+    const publicId = this.extractPublicIdFromUrl(url);
+    if (!publicId) return;
+    try {
+      await new Promise((resolve) => {
+        cloudinary.uploader.destroy(publicId, (error, result) => {
+          if (error) this.logger.warn(`Failed to delete from Cloudinary: ${publicId}`);
+          resolve(result);
+        });
+      });
+    } catch (e) {
+      this.logger.warn(`Error deleting from Cloudinary: ${publicId}`);
     }
   }
 }

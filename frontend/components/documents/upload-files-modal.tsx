@@ -11,11 +11,12 @@ interface UploadFilesModalProps {
   organisationId: string;
   folderId?: string; // Optional if they want to upload to root
   folderName?: string;
+  committeeId?: string;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function UploadFilesModal({ organisationId, folderId, folderName, isOpen, onOpenChange }: UploadFilesModalProps) {
+export function UploadFilesModal({ organisationId, folderId, folderName, committeeId, isOpen, onOpenChange }: UploadFilesModalProps) {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -40,6 +41,10 @@ export function UploadFilesModal({ organisationId, folderId, folderName, isOpen,
         formData.append("organisationId", organisationId);
         if (folderId) {
           formData.append("folderId", folderId);
+        }
+        if (committeeId) {
+          formData.append("committeeId", committeeId);
+          formData.append("committeeVisible", "true");
         }
 
         return api.post("/documents/upload", formData, {

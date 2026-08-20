@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsUUID, Min, IsBoolean } from 'class-validator';
 
 /**
  * UpdateDocumentDto — only exposes fields that make sense to change after creation.
@@ -46,4 +46,12 @@ export class UpdateDocumentDto {
   @IsOptional()
   @IsUUID()
   agendaItemId?: string | null;
+
+  @IsOptional()
+  @IsUUID()
+  committeeId?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  committeeVisible?: boolean;
 }

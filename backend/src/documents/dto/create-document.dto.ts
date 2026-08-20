@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -63,4 +64,12 @@ export class CreateDocumentDto {
   @IsOptional()
   @IsUUID()
   folderId?: string;
+
+  @IsOptional()
+  @IsUUID()
+  committeeId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  committeeVisible?: boolean;
 }

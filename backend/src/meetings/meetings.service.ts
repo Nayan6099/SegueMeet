@@ -42,43 +42,59 @@ export class MeetingsService {
       CAN_MANAGE_MEETINGS
     );
 
+    let tz = dto.timeZone;
+    if (tz === 'Asia/Calcutta') tz = 'Asia/Kolkata';
+
     try {
-      const meeting = await this.prisma.meeting.create({
-        data: {
-          organisationId: dto.organisationId,
-          title: dto.title,
-          date: dto.date,
-          startTime: dto.startTime,
-          endTime: dto.endTime,
-          location: dto.location,
-          isRemote: dto.isRemote ?? false,
-          administrator: dto.administrator,
-          notes: dto.notes,
-          status: dto.status,
-          ...(dto.attendeeIds && dto.attendeeIds.length > 0 && {
+      const meeting = await this.prisma.$transaction(async (tx) => {
+        const m = await tx.meeting.create({
+          data: {
+            organisationId: dto.organisationId,
+            title: dto.title,
+            date: dto.date,
+            startTime: dto.startTime,
+            endTime: dto.endTime,
+            timeZone: tz,
+            location: dto.location,
+            isRemote: dto.isRemote ?? false,
+            administrator: dto.administrator,
+            notes: dto.notes,
+            status: dto.status,
+            committeeId: dto.committeeId,
+            committeeVisible: dto.committeeVisible,
+            ...(dto.attendeeIds && dto.attendeeIds.length > 0 && {
+              attendees: {
+                create: dto.attendeeIds.map(userId => ({
+                  userId,
+                  rsvp: 'PENDING'
+                }))
+              }
+            })
+          },
+          include: {
             attendees: {
-              create: dto.attendeeIds.map(userId => ({
-                userId,
-                rsvp: 'PENDING'
-              }))
+              include: { user: true }
             }
-          })
-        },
-        include: {
-          attendees: {
-            include: { user: true }
           }
-        }
+        });
+
+        await this.auditService.logTx(tx, {
+          organisationId: dto.organisationId,
+          actorId: user.id,
+          action: 'meeting.created',
+          entityType: 'Meeting',
+          entityId: m.id,
+          payload: { title: dto.title, date: dto.date },
+        });
+
+        return m;
       });
 
-      this.auditService.log({
-        organisationId: dto.organisationId,
-        actorId: user.id,
-        action: 'meeting.created',
-        entityType: 'Meeting',
-        entityId: meeting.id,
-        payload: { title: dto.title, date: dto.date },
+      const org = await this.prisma.organisation.findUnique({
+        where: { id: dto.organisationId },
+        select: { name: true }
       });
+      const orgName = org?.name || 'an organisation';
 
       // Only notify actual attendees if attendeeIds are provided, else notify everyone (fallback for old UI)
       const usersToNotify = meeting.attendees?.length > 0 
@@ -100,14 +116,14 @@ export class MeetingsService {
         });
 
         // Also dispatch email
-        await this.mailService.sendMeetingInvite(
+        this.mailService.sendMeetingInvite(
           member.email,
-          meeting.title,
-          meeting.date,
-          `${meeting.startTime} - ${meeting.endTime}`,
-          null as any, // videoLink removed
-          meeting.location
-        );
+          meeting,
+          orgName,
+          user.name
+        ).catch(error => {
+          this.logger.error('Unexpected error while sending meeting invite email:', error);
+        });
         // }
       }
 
@@ -132,9 +148,25 @@ export class MeetingsService {
     );
 
     try {
+      const isManager = await this.organisationsService.hasAnyRole(
+        query.organisationId,
+        user.id,
+        CAN_MANAGE_MEETINGS
+      );
+
       const where: Prisma.MeetingWhereInput = {
         organisationId: query.organisationId,
       };
+
+      if (!isManager) {
+        where.OR = [
+          { attendees: { some: { userId: user.id } } },
+          {
+            committeeVisible: true,
+            committee: { members: { some: { userId: user.id } } }
+          }
+        ];
+      }
 
       if (query.status) {
         where.status = query.status;
@@ -196,6 +228,31 @@ export class MeetingsService {
       user.id,
     );
 
+    // 2. Verify meeting attendance for non-managers
+    const isManager = await this.organisationsService.hasAnyRole(
+      meeting.organisationId,
+      user.id,
+      CAN_MANAGE_MEETINGS
+    );
+
+    if (!isManager) {
+      const isAttendee = meeting.attendees.some(a => a.userId === user.id);
+      
+      let isCommitteeVisibleMember = false;
+      if (meeting.committeeVisible && meeting.committeeId) {
+        const committeeMember = await this.prisma.committeeMember.findUnique({
+          where: { committeeId_userId: { committeeId: meeting.committeeId, userId: user.id } }
+        });
+        if (committeeMember) {
+          isCommitteeVisibleMember = true;
+        }
+      }
+
+      if (!isAttendee && !isCommitteeVisibleMember) {
+        throw new ForbiddenException('You are not authorized to view this meeting');
+      }
+    }
+
     return meeting;
   }
 
@@ -222,40 +279,69 @@ export class MeetingsService {
       CAN_MANAGE_MEETINGS
     );
 
+    let tz = dto.timeZone;
+    if (tz === 'Asia/Calcutta') tz = 'Asia/Kolkata';
+
     try {
-      const updated = await this.prisma.meeting.update({
-        where: { id },
-        data: {
-          title: dto.title,
-          date: dto.date,
-          startTime: dto.startTime,
-          endTime: dto.endTime,
-          location: dto.location,
-          isRemote: dto.isRemote,
-          administrator: dto.administrator,
-          notes: dto.notes,
-          status: dto.status,
-          agendaStatus: dto.agendaStatus,
-        },
-      });
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const u = await tx.meeting.update({
+          where: { id },
+          data: {
+            title: dto.title,
+            date: dto.date,
+            startTime: dto.startTime,
+            endTime: dto.endTime,
+            ...(tz && { timeZone: tz }),
+            location: dto.location,
+            isRemote: dto.isRemote,
+            administrator: dto.administrator,
+            notes: dto.notes,
+            status: dto.status,
+            agendaStatus: dto.agendaStatus,
+            ...(dto.committeeId !== undefined && { committeeId: dto.committeeId }),
+            ...(dto.committeeVisible !== undefined && { committeeVisible: dto.committeeVisible }),
+          },
+        });
 
-      this.auditService.log({
-        organisationId: meeting.organisationId,
-        actorId: user.id,
-        action: 'meeting.updated',
-        entityType: 'Meeting',
-        entityId: id,
-        payload: { title: dto.title, status: dto.status },
-      });
-
-      if (dto.agendaStatus === 'PUBLISHED') {
-        this.auditService.log({
+        await this.auditService.logTx(tx, {
           organisationId: meeting.organisationId,
           actorId: user.id,
-          action: 'agenda.published',
+          action: 'meeting.updated',
           entityType: 'Meeting',
           entityId: id,
+          payload: { title: dto.title, status: dto.status },
         });
+
+        if (dto.agendaStatus === 'PUBLISHED') {
+          await this.auditService.logTx(tx, {
+            organisationId: meeting.organisationId,
+            actorId: user.id,
+            action: 'agenda.published',
+            entityType: 'Meeting',
+            entityId: id,
+          });
+        }
+
+        return u;
+      });
+
+      // Send update emails to attendees
+      const attendees = await this.prisma.meetingAttendee.findMany({
+        where: { meetingId: id },
+        include: { user: true }
+      });
+      const orgName = (await this.prisma.organisation.findUnique({ where: { id: meeting.organisationId } }))?.name || 'an organisation';
+      
+      for (const attendee of attendees) {
+        this.mailService.sendMeetingUpdate(
+          attendee.user.email,
+          updated,
+          orgName,
+          user.name
+        ).catch(err => this.logger.error('Error sending update email', err));
+      }
+
+      if (dto.agendaStatus === 'PUBLISHED') {
 
         // Notify all members
         const members = await this.prisma.organisationMember.findMany({
@@ -307,16 +393,34 @@ export class MeetingsService {
     );
 
     try {
-      await this.prisma.meeting.delete({
-        where: { id },
+      // Send cancellation emails before deleting
+      const attendees = await this.prisma.meetingAttendee.findMany({
+        where: { meetingId: id },
+        include: { user: true }
       });
+      const orgName = (await this.prisma.organisation.findUnique({ where: { id: meeting.organisationId } }))?.name || 'an organisation';
+      
+      for (const attendee of attendees) {
+        this.mailService.sendMeetingCancelled(
+          attendee.user.email,
+          meeting,
+          orgName,
+          user.name
+        ).catch(err => this.logger.error('Error sending cancel email', err));
+      }
 
-      this.auditService.log({
-        organisationId: meeting.organisationId,
-        actorId: user.id,
-        action: 'meeting.deleted',
-        entityType: 'Meeting',
-        entityId: id,
+      await this.prisma.$transaction(async (tx) => {
+        await tx.meeting.delete({
+          where: { id },
+        });
+
+        await this.auditService.logTx(tx, {
+          organisationId: meeting.organisationId,
+          actorId: user.id,
+          action: 'meeting.deleted',
+          entityType: 'Meeting',
+          entityId: id,
+        });
       });
 
       return { message: 'Meeting deleted successfully' };
@@ -334,6 +438,7 @@ export class MeetingsService {
   async addAttendee(meetingId: string, userId: string, user: AuthenticatedUser) {
     const meeting = await this.prisma.meeting.findUnique({
       where: { id: meetingId },
+      include: { organisation: { select: { name: true } } }
     });
 
     if (!meeting) {
@@ -348,33 +453,47 @@ export class MeetingsService {
     );
 
     try {
-      const attendee = await this.prisma.meetingAttendee.create({
-        data: {
-          meetingId,
-          userId,
-          rsvp: 'PENDING',
-        },
-        include: { user: true }
+      // Check if attendee already exists to avoid duplicate emails
+      const existingAttendee = await this.prisma.meetingAttendee.findUnique({
+        where: { meetingId_userId: { meetingId, userId } }
       });
 
-      this.auditService.log({
-        organisationId: meeting.organisationId,
-        actorId: user.id,
-        action: 'meeting.attendee_added',
-        entityType: 'Meeting',
-        entityId: meetingId,
-        payload: { userId },
-      });
+      let attendee;
+      if (existingAttendee) {
+        attendee = existingAttendee;
+      } else {
+        attendee = await this.prisma.$transaction(async (tx) => {
+          const a = await tx.meetingAttendee.create({
+            data: {
+              meetingId,
+              userId,
+              rsvp: 'PENDING',
+            },
+            include: { user: true }
+          });
 
-      // Send email invite
-      await this.mailService.sendMeetingInvite(
-        attendee.user.email,
-        meeting.title,
-        meeting.date,
-        `${meeting.startTime} - ${meeting.endTime}`,
-        null as any, // videoLink removed
-        meeting.location
-      );
+          await this.auditService.logTx(tx, {
+            organisationId: meeting.organisationId,
+            actorId: user.id,
+            action: 'meeting.attendee_added',
+            entityType: 'Meeting',
+            entityId: meetingId,
+            payload: { userId },
+          });
+
+          return a;
+        });
+
+        // Send email invite asynchronously
+        this.mailService.sendMeetingInvite(
+          attendee.user.email,
+          meeting,
+          meeting.organisation.name,
+          user.name
+        ).catch(error => {
+          this.logger.error('Unexpected error while sending meeting invite email:', error);
+        });
+      }
 
       return attendee;
     } catch (error) {

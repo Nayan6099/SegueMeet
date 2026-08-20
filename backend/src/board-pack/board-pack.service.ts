@@ -7,8 +7,12 @@ import {
   StreamableFile,
 } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
+import { PDFDocument as PDFLibDocument } from 'pdf-lib';
+import axios from 'axios';
 import { PrismaService } from '../common/database/prisma.service';
 import { OrganisationsService } from '../organisations/organisations.service';
+import { MailService } from '../mail/mail.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { v2 as cloudinary } from 'cloudinary';
 import * as streamifier from 'streamifier';
@@ -69,6 +73,12 @@ export interface BoardPackData {
     agendaItemId: string | null;
     createdAt: Date;
   }>;
+  boardPack: {
+    id: string;
+    version: number;
+    status: string;
+    publishedAt: Date | null;
+  } | null;
 }
 
 // ─────────────────────────────────────────────
@@ -120,6 +130,8 @@ export class BoardPackService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly organisationsService: OrganisationsService,
+    private readonly mailService: MailService,
+    private readonly notificationsService: NotificationsService,
   ) {
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -143,6 +155,21 @@ export class BoardPackService {
       meeting.organisationId,
       userId,
     );
+
+    const isManager = await this.organisationsService.hasAnyRole(
+      meeting.organisationId,
+      userId,
+      CAN_MANAGE_BOARD_PACK,
+    );
+
+    if (!isManager) {
+      const attendee = await this.prisma.meetingAttendee.findFirst({
+        where: { meetingId, userId },
+      });
+      if (!attendee) {
+        throw new ForbiddenException('You do not have permission to access this meeting');
+      }
+    }
 
     return meeting;
   }
@@ -182,6 +209,10 @@ export class BoardPackService {
           documents: {
             orderBy: { createdAt: 'asc' },
           },
+          boardPacks: {
+            orderBy: { version: 'desc' },
+            take: 1,
+          }
         },
       });
 
@@ -239,6 +270,12 @@ export class BoardPackService {
           agendaItemId: d.agendaItemId,
           createdAt: d.createdAt,
         })),
+        boardPack: meeting.boardPacks[0] ? {
+          id: meeting.boardPacks[0].id,
+          version: meeting.boardPacks[0].version,
+          status: meeting.boardPacks[0].status,
+          publishedAt: meeting.boardPacks[0].publishedAt,
+        } : null,
       };
     } catch (error) {
       if (
@@ -327,6 +364,39 @@ export class BoardPackService {
                   publishedAt: new Date(),
                 },
               });
+
+              // Notify attendees
+              const attendees = await this.prisma.meetingAttendee.findMany({
+                where: { meetingId },
+                include: { user: true }
+              });
+
+              const org = await this.prisma.organisation.findUnique({ where: { id: meeting.organisationId } });
+
+              for (const attendee of attendees) {
+                if (!attendee.user) continue;
+                
+                await this.notificationsService.createNotification({
+                  organisationId: meeting.organisationId,
+                  recipientId: attendee.userId,
+                  type: 'DOCUMENT_UPLOADED',
+                  title: 'Board Pack Published',
+                  message: `The board pack for ${data.meeting.title} has been published.`,
+                  entityType: 'BOARD_PACK',
+                  entityId: boardPack.id,
+                });
+                
+                this.mailService.sendBoardPackPublishedEmail(
+                  attendee.user.email,
+                  data.meeting.title,
+                  org?.name || 'Your Organisation',
+                  user.email || 'Admin',
+                  meeting.id
+                ).catch(err => {
+                  this.logger.error(`Failed to send board pack email to ${attendee.user.email}`);
+                });
+              }
+
               resolve(boardPack);
             } catch (dbError) {
               reject(dbError);
@@ -345,19 +415,45 @@ export class BoardPackService {
   // PRIVATE: build PDF buffer
   // ─────────────────────────────────────────────
 
-  private buildPdfBuffer(data: BoardPackData): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
+  private async buildPdfBuffer(data: BoardPackData): Promise<Buffer> {
+    const basePdfBuffer = await new Promise<Buffer>((resolve, reject) => {
       const doc = new PDFDocument({ margin: 50, size: 'A4' });
       const chunks: Buffer[] = [];
-
       doc.on('data', (chunk: Buffer) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
-
       this.renderPdf(doc, data);
-
       doc.end();
     });
+
+    try {
+      const pdfDoc = await PDFLibDocument.load(basePdfBuffer);
+
+      for (const doc of data.documents) {
+        if (doc.mimeType !== 'application/pdf') continue;
+
+        try {
+          const dbDoc = await this.prisma.document.findUnique({ where: { id: doc.id } });
+          if (!dbDoc || !dbDoc.storagePath) continue;
+
+          const response = await axios.get(dbDoc.storagePath, { responseType: 'arraybuffer' });
+          const attachmentPdf = await PDFLibDocument.load(response.data);
+          const copiedPages = await pdfDoc.copyPages(attachmentPdf, attachmentPdf.getPageIndices());
+          
+          for (const page of copiedPages) {
+            pdfDoc.addPage(page);
+          }
+        } catch (downloadError) {
+          this.logger.error(`Failed to fetch/merge PDF attachment ${doc.id}`, downloadError);
+        }
+      }
+
+      const mergedPdfBytes = await pdfDoc.save();
+      return Buffer.from(mergedPdfBytes);
+    } catch (error) {
+      this.logger.error('Failed to merge PDFs with pdf-lib', error);
+      throw error;
+    }
   }
 
   private renderPdf(
@@ -537,11 +633,15 @@ export class BoardPackService {
 
       documents.forEach((d, idx) => {
         const sizeKb = (d.sizeBytes / 1024).toFixed(1);
+        const attachmentNote = d.mimeType === 'application/pdf' 
+          ? '' 
+          : ' (Not embedded - PDF conversion required)';
+          
         doc
           .font('Helvetica-Bold')
           .fontSize(9.5)
           .fillColor(COLORS.text)
-          .text(`${idx + 1}.  ${d.originalName}`, 72, doc.y, {
+          .text(`${idx + 1}.  ${d.originalName}${attachmentNote}`, 72, doc.y, {
             continued: true,
             width: pageWidth - 200,
           })

@@ -1,11 +1,6 @@
-import {
-  IsString,
-  IsBoolean,
-  IsOptional,
-  IsEnum,
-  Matches,
-} from 'class-validator';
+import { IsOptional, IsString, IsBoolean, IsArray, IsEnum, IsUUID, Matches } from 'class-validator';
 import { MeetingStatus, AgendaStatus } from '@prisma/client';
+import { IsIanaTimeZone } from '../../common/validators/is-timezone.validator';
 
 export class UpdateMeetingDto {
   @IsOptional()
@@ -38,6 +33,10 @@ export class UpdateMeetingDto {
   location?: string;
 
   @IsOptional()
+  @IsIanaTimeZone()
+  timeZone?: string;
+
+  @IsOptional()
   @IsBoolean()
   isRemote?: boolean;
 
@@ -56,4 +55,12 @@ export class UpdateMeetingDto {
   @IsOptional()
   @IsEnum(AgendaStatus)
   agendaStatus?: AgendaStatus;
+
+  @IsOptional()
+  @IsUUID()
+  committeeId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  committeeVisible?: boolean;
 }

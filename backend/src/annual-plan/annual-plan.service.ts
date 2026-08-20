@@ -50,19 +50,23 @@ export class AnnualPlanService {
     );
 
     try {
-      const plan = await this.prisma.annualPlan.upsert({
-        where: { organisationId_year: { organisationId, year } },
-        create: { organisationId, year },
-        update: {},
-        include: { items: { orderBy: { month: 'asc' } } },
-      });
+      const plan = await this.prisma.$transaction(async (tx) => {
+        const p = await tx.annualPlan.upsert({
+          where: { organisationId_year: { organisationId, year } },
+          create: { organisationId, year },
+          update: {},
+          include: { items: { orderBy: { month: 'asc' } } },
+        });
 
-      this.auditService.log({
-        organisationId,
-        actorId: user.id,
-        action: 'annual_plan.created',
-        entityType: 'AnnualPlan',
-        entityId: plan.id,
+        await this.auditService.logTx(tx, {
+          organisationId,
+          actorId: user.id,
+          action: 'annual_plan.created',
+          entityType: 'AnnualPlan',
+          entityId: p.id,
+        });
+
+        return p;
       });
 
       return plan;
@@ -83,14 +87,16 @@ export class AnnualPlanService {
     );
 
     try {
-      await this.prisma.annualPlan.delete({ where: { id } });
+      await this.prisma.$transaction(async (tx) => {
+        await tx.annualPlan.delete({ where: { id } });
 
-      this.auditService.log({
-        organisationId: plan.organisationId,
-        actorId: user.id,
-        action: 'annual_plan.deleted',
-        entityType: 'AnnualPlan',
-        entityId: id,
+        await this.auditService.logTx(tx, {
+          organisationId: plan.organisationId,
+          actorId: user.id,
+          action: 'annual_plan.deleted',
+          entityType: 'AnnualPlan',
+          entityId: id,
+        });
       });
 
       return { success: true };
@@ -116,22 +122,26 @@ export class AnnualPlanService {
     );
 
     try {
-      const item = await this.prisma.planItem.create({
-        data: {
-          annualPlanId: planId,
-          title: data.title,
-          description: data.description,
-          month: data.month,
-          status: (data.status as any) || 'TODO',
-        },
-      });
+      const item = await this.prisma.$transaction(async (tx) => {
+        const i = await tx.planItem.create({
+          data: {
+            annualPlanId: planId,
+            title: data.title,
+            description: data.description,
+            month: data.month,
+            status: (data.status as any) || 'TODO',
+          },
+        });
 
-      this.auditService.log({
-        organisationId: plan.organisationId,
-        actorId: user.id,
-        action: 'annual_plan.item_added',
-        entityType: 'PlanItem',
-        entityId: item.id,
+        await this.auditService.logTx(tx, {
+          organisationId: plan.organisationId,
+          actorId: user.id,
+          action: 'annual_plan.item_added',
+          entityType: 'PlanItem',
+          entityId: i.id,
+        });
+
+        return i;
       });
 
       return item;
@@ -164,17 +174,21 @@ export class AnnualPlanService {
         status: (item.status as any) || 'TODO',
       }));
 
-      const result = await this.prisma.planItem.createMany({
-        data: dataToInsert,
-      });
+      const result = await this.prisma.$transaction(async (tx) => {
+        const r = await tx.planItem.createMany({
+          data: dataToInsert,
+        });
 
-      this.auditService.log({
-        organisationId: plan.organisationId,
-        actorId: user.id,
-        action: 'annual_plan.items_bulk_added',
-        entityType: 'AnnualPlan',
-        entityId: plan.id,
-        payload: { count: result.count }
+        await this.auditService.logTx(tx, {
+          organisationId: plan.organisationId,
+          actorId: user.id,
+          action: 'annual_plan.items_bulk_added',
+          entityType: 'AnnualPlan',
+          entityId: plan.id,
+          payload: { count: r.count }
+        });
+
+        return r;
       });
 
       return { count: result.count };

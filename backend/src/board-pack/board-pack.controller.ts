@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Header, Param, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { BoardPackService } from './board-pack.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -43,6 +44,7 @@ export class BoardPackController {
    */
   @Get('pdf')
   @Header('Content-Type', 'application/pdf')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   generatePdf(
     @Param('meetingId') meetingId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -56,6 +58,7 @@ export class BoardPackController {
    * Generates a PDF board pack, uploads it to Cloudinary, and saves it in the DB.
    */
   @Post('publish')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   publishBoardPack(
     @Param('meetingId') meetingId: string,
     @CurrentUser() user: AuthenticatedUser,

@@ -19,7 +19,7 @@ import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '@prisma/client';
 
-import { CAN_MANAGE_MINUTES, CAN_MANAGE_ACTIONS } from '../common/auth/roles.constants';
+import { CAN_MANAGE_MINUTES, CAN_MANAGE_ACTIONS, CAN_MANAGE_MEETINGS } from '../common/auth/roles.constants';
 
 @Injectable()
 export class MinutesService {
@@ -133,22 +133,26 @@ export class MinutesService {
     );
 
     try {
-      const minutes = await this.prisma.minutes.create({
-        data: {
-          meetingId,
-          status: dto.status,
-          content: dto.content,
-        },
-        include: { actionItems: true },
-      });
+      const minutes = await this.prisma.$transaction(async (tx) => {
+        const m = await tx.minutes.create({
+          data: {
+            meetingId,
+            status: dto.status,
+            content: dto.content,
+          },
+          include: { actionItems: true },
+        });
 
-      this.auditService.log({
-        organisationId: meeting.organisationId,
-        actorId: user.id,
-        action: 'minutes.created',
-        entityType: 'Minutes',
-        entityId: minutes.id,
-        payload: { meetingId, status: dto.status },
+        await this.auditService.logTx(tx, {
+          organisationId: meeting.organisationId,
+          actorId: user.id,
+          action: 'minutes.created',
+          entityType: 'Minutes',
+          entityId: m.id,
+          payload: { meetingId, status: dto.status },
+        });
+
+        return m;
       });
 
       return minutes;
@@ -242,22 +246,26 @@ export class MinutesService {
     );
 
     try {
-      const updated = await this.prisma.minutes.update({
-        where: { id: minutesId },
-        data: {
-          status: dto.status,
-          content: dto.content,
-        },
-        include: { actionItems: true },
-      });
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const u = await tx.minutes.update({
+          where: { id: minutesId },
+          data: {
+            status: dto.status,
+            content: dto.content,
+          },
+          include: { actionItems: true },
+        });
 
-      this.auditService.log({
-        organisationId: minutes.meeting.organisationId,
-        actorId: user.id,
-        action: 'minutes.updated',
-        entityType: 'Minutes',
-        entityId: minutesId,
-        payload: { status: dto.status },
+        await this.auditService.logTx(tx, {
+          organisationId: minutes.meeting.organisationId,
+          actorId: user.id,
+          action: 'minutes.updated',
+          entityType: 'Minutes',
+          entityId: minutesId,
+          payload: { status: dto.status },
+        });
+
+        return u;
       });
 
       return updated;
@@ -286,14 +294,16 @@ export class MinutesService {
     );
 
     try {
-      await this.prisma.minutes.delete({ where: { id: minutesId } });
+      await this.prisma.$transaction(async (tx) => {
+        await tx.minutes.delete({ where: { id: minutesId } });
 
-      this.auditService.log({
-        organisationId: minutes.meeting.organisationId,
-        actorId: user.id,
-        action: 'minutes.deleted',
-        entityType: 'Minutes',
-        entityId: minutesId,
+        await this.auditService.logTx(tx, {
+          organisationId: minutes.meeting.organisationId,
+          actorId: user.id,
+          action: 'minutes.deleted',
+          entityType: 'Minutes',
+          entityId: minutesId,
+        });
       });
 
       return { message: 'Minutes deleted successfully' };
@@ -323,17 +333,21 @@ export class MinutesService {
     }
 
     try {
-      const updated = await this.prisma.minutes.update({
-        where: { id: minutesId },
-        data: { status: 'IN_REVIEW' },
-      });
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const u = await tx.minutes.update({
+          where: { id: minutesId },
+          data: { status: 'IN_REVIEW' },
+        });
 
-      this.auditService.log({
-        organisationId: minutes.meeting.organisationId,
-        actorId: user.id,
-        action: 'minutes.submitted_for_review',
-        entityType: 'Minutes',
-        entityId: minutesId,
+        await this.auditService.logTx(tx, {
+          organisationId: minutes.meeting.organisationId,
+          actorId: user.id,
+          action: 'minutes.submitted_for_review',
+          entityType: 'Minutes',
+          entityId: minutesId,
+        });
+
+        return u;
       });
 
       // Notify attendees that minutes are ready for review
@@ -393,20 +407,24 @@ export class MinutesService {
       .digest('hex');
 
     try {
-      const signature = await this.prisma.minutesSignature.create({
-        data: {
-          minutesId,
-          signerId: user.id,
-          signatureHash,
-        },
-      });
+      const signature = await this.prisma.$transaction(async (tx) => {
+        const s = await tx.minutesSignature.create({
+          data: {
+            minutesId,
+            signerId: user.id,
+            signatureHash,
+          },
+        });
 
-      this.auditService.log({
-        organisationId: minutes.meeting.organisationId,
-        actorId: user.id,
-        action: 'minutes.signed',
-        entityType: 'MinutesSignature',
-        entityId: signature.id,
+        await this.auditService.logTx(tx, {
+          organisationId: minutes.meeting.organisationId,
+          actorId: user.id,
+          action: 'minutes.signed',
+          entityType: 'MinutesSignature',
+          entityId: s.id,
+        });
+
+        return s;
       });
 
       return signature;
@@ -432,17 +450,21 @@ export class MinutesService {
     }
 
     try {
-      const updated = await this.prisma.minutes.update({
-        where: { id: minutesId },
-        data: { status: 'CONFIRMED' },
-      });
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const u = await tx.minutes.update({
+          where: { id: minutesId },
+          data: { status: 'CONFIRMED' },
+        });
 
-      this.auditService.log({
-        organisationId: minutes.meeting.organisationId,
-        actorId: user.id,
-        action: 'minutes.confirmed',
-        entityType: 'Minutes',
-        entityId: minutesId,
+        await this.auditService.logTx(tx, {
+          organisationId: minutes.meeting.organisationId,
+          actorId: user.id,
+          action: 'minutes.confirmed',
+          entityType: 'Minutes',
+          entityId: minutesId,
+        });
+
+        return u;
       });
 
       return updated;
@@ -501,13 +523,32 @@ export class MinutesService {
     await this.organisationsService.requireMembership(organisationId, user.id);
 
     try {
-      const where = {
+      const isManager = await this.organisationsService.hasAnyRole(
+        organisationId,
+        user.id,
+        CAN_MANAGE_MEETINGS
+      );
+
+      const where: any = {
         minutes: {
           meeting: {
             organisationId,
           },
         },
       };
+
+      if (!isManager) {
+        where.OR = [
+          { assigneeId: user.id },
+          {
+            minutes: {
+              meeting: {
+                attendees: { some: { userId: user.id } }
+              }
+            }
+          }
+        ];
+      }
 
       const [data, total] = await Promise.all([
         this.prisma.minutesActionItem.findMany({
@@ -560,30 +601,34 @@ export class MinutesService {
     }
 
     try {
-      const item = await this.prisma.minutesActionItem.create({
-        data: {
-          minutesId,
-          description: dto.description,
-          assigneeId: dto.assigneeId ?? null,
-          dueDate: dto.dueDate ?? null,
-          status: dto.status,
-        },
-        include: {
-          assignee: { select: { id: true, name: true, email: true } },
-        },
-      });
+      const item = await this.prisma.$transaction(async (tx) => {
+        const i = await tx.minutesActionItem.create({
+          data: {
+            minutesId,
+            description: dto.description,
+            assigneeId: dto.assigneeId ?? null,
+            dueDate: dto.dueDate ?? null,
+            status: dto.status,
+          },
+          include: {
+            assignee: { select: { id: true, name: true, email: true } },
+          },
+        });
 
-      this.auditService.log({
-        organisationId,
-        actorId: user.id,
-        action: 'action_item.created',
-        entityType: 'MinutesActionItem',
-        entityId: item.id,
-        payload: {
-          minutesId,
-          description: dto.description,
-          status: dto.status,
-        },
+        await this.auditService.logTx(tx, {
+          organisationId,
+          actorId: user.id,
+          action: 'action_item.created',
+          entityType: 'MinutesActionItem',
+          entityId: i.id,
+          payload: {
+            minutesId,
+            description: dto.description,
+            status: dto.status,
+          },
+        });
+
+        return i;
       });
 
       if (dto.assigneeId && dto.assigneeId !== user.id) {
@@ -631,27 +676,31 @@ export class MinutesService {
     }
 
     try {
-      const updated = await this.prisma.minutesActionItem.update({
-        where: { id: actionItemId },
-        data: {
-          description: dto.description,
-          // undefined = don't touch the field; null = explicit unassign
-          ...(dto.assigneeId !== undefined && { assigneeId: dto.assigneeId }),
-          dueDate: dto.dueDate,
-          status: dto.status,
-        },
-        include: {
-          assignee: { select: { id: true, name: true, email: true } },
-        },
-      });
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const u = await tx.minutesActionItem.update({
+          where: { id: actionItemId },
+          data: {
+            description: dto.description,
+            // undefined = don't touch the field; null = explicit unassign
+            ...(dto.assigneeId !== undefined && { assigneeId: dto.assigneeId }),
+            dueDate: dto.dueDate,
+            status: dto.status,
+          },
+          include: {
+            assignee: { select: { id: true, name: true, email: true } },
+          },
+        });
 
-      this.auditService.log({
-        organisationId,
-        actorId: user.id,
-        action: 'action_item.updated',
-        entityType: 'MinutesActionItem',
-        entityId: actionItemId,
-        payload: { description: dto.description, status: dto.status },
+        await this.auditService.logTx(tx, {
+          organisationId,
+          actorId: user.id,
+          action: 'action_item.updated',
+          entityType: 'MinutesActionItem',
+          entityId: actionItemId,
+          payload: { description: dto.description, status: dto.status },
+        });
+
+        return u;
       });
 
       if (dto.assigneeId && dto.assigneeId !== item.assigneeId && dto.assigneeId !== user.id) {
@@ -690,16 +739,18 @@ export class MinutesService {
     );
 
     try {
-      await this.prisma.minutesActionItem.delete({
-        where: { id: actionItemId },
-      });
+      await this.prisma.$transaction(async (tx) => {
+        await tx.minutesActionItem.delete({
+          where: { id: actionItemId },
+        });
 
-      this.auditService.log({
-        organisationId,
-        actorId: user.id,
-        action: 'action_item.deleted',
-        entityType: 'MinutesActionItem',
-        entityId: actionItemId,
+        await this.auditService.logTx(tx, {
+          organisationId,
+          actorId: user.id,
+          action: 'action_item.deleted',
+          entityType: 'MinutesActionItem',
+          entityId: actionItemId,
+        });
       });
 
       return { message: 'Action item deleted successfully' };

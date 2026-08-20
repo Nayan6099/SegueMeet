@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/lib/auth-context";
 import { useSearch } from "@/hooks/use-search";
+import { api } from "@/lib/api";
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,22 @@ export default function SearchPage() {
   const people = results?.people || [];
 
   const totalResults = meetings.length + documents.length + people.length;
+
+  const handleDownload = async (doc: any) => {
+    try {
+      const res = await api.get(`/documents/${doc.id}/download`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: doc.mimeType }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.originalName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error("Failed to download document", err);
+    }
+  };
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-8">
@@ -132,7 +149,7 @@ export default function SearchPage() {
                 <h3 className="text-sm font-semibold text-slate-800 mb-4 uppercase tracking-wider">Documents</h3>
                 <div className="grid gap-4">
                   {documents.map((d: any) => (
-                    <a key={d.id} href={d.storagePath} target="_blank" rel="noreferrer">
+                    <div key={d.id} onClick={() => handleDownload(d)} className="cursor-pointer">
                       <div className="p-4 border rounded-xl hover:border-primary transition-colors bg-white flex items-start gap-4 shadow-sm group">
                         <div className="p-2 bg-red-50 text-red-500 rounded-lg group-hover:bg-red-100 transition-colors">
                           <FileText className="w-5 h-5" />
@@ -142,7 +159,7 @@ export default function SearchPage() {
                           <p className="text-sm text-slate-500 mt-1">Uploaded on {new Date(d.createdAt).toLocaleDateString()}</p>
                         </div>
                       </div>
-                    </a>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -197,19 +214,19 @@ export default function SearchPage() {
               <p className="text-center py-12 text-slate-500">No document results</p>
             ) : (
               <div className="grid gap-4">
-                {documents.map((d: any) => (
-                  <a key={d.id} href={d.storagePath} target="_blank" rel="noreferrer">
-                    <div className="p-4 border rounded-xl hover:border-primary transition-colors bg-white flex items-start gap-4 shadow-sm group">
-                      <div className="p-2 bg-red-50 text-red-500 rounded-lg group-hover:bg-red-100 transition-colors">
-                        <FileText className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-slate-800">{d.originalName}</h4>
-                        <p className="text-sm text-slate-500 mt-1">Uploaded on {new Date(d.createdAt).toLocaleDateString()}</p>
+                  {documents.map((d: any) => (
+                    <div key={d.id} onClick={() => handleDownload(d)} className="cursor-pointer">
+                      <div className="p-4 border rounded-xl hover:border-primary transition-colors bg-white flex items-start gap-4 shadow-sm group">
+                        <div className="p-2 bg-red-50 text-red-500 rounded-lg group-hover:bg-red-100 transition-colors">
+                          <FileText className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-slate-800">{d.originalName}</h4>
+                          <p className="text-sm text-slate-500 mt-1">Uploaded on {new Date(d.createdAt).toLocaleDateString()}</p>
+                        </div>
                       </div>
                     </div>
-                  </a>
-                ))}
+                  ))}
               </div>
             )}
           </TabsContent>

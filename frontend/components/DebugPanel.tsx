@@ -44,7 +44,7 @@ export default function DebugPanel() {
         return newArr;
       });
     });
-    return unsub;
+    return () => { unsub(); };
   }, []);
 
   // Auto‑scroll to bottom when new logs arrive

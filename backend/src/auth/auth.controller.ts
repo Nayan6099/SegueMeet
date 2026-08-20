@@ -7,10 +7,16 @@ import {
   Post,
   Patch,
   UseGuards,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
+import { JwtService } from '@nestjs/jwt';
+import { ExtractJwt } from 'passport-jwt';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -18,7 +24,10 @@ import type { AuthenticatedUser } from './auth.types';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly jwtService: JwtService,
+  ) {}
 
   /**
    * POST /auth/register
@@ -29,6 +38,7 @@ export class AuthController {
    */
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
@@ -41,19 +51,29 @@ export class AuthController {
    */
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
 
+
+
   /**
    * POST /auth/logout
    *
-   * Stateless — instructs the client to discard its access token.
-   * No server-side token revocation in Phase 2.
+   * Revokes the current token via the blocklist.
    */
   @Post('logout')
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  logout() {
+  logout(@Req() req: Request) {
+    const token = ExtractJwt.fromAuthHeaderAsBearerToken()(req as any);
+    if (token) {
+      const decoded = this.jwtService.decode(token) as any;
+      if (decoded && decoded.jti && decoded.exp) {
+        return this.authService.logout(decoded.jti, decoded.exp);
+      }
+    }
     return this.authService.logout();
   }
 

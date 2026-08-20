@@ -63,7 +63,8 @@ const original = { ...console };
 // Intercept fetch (browser only)
 if (typeof window !== "undefined" && window.fetch) {
   const origFetch = window.fetch.bind(window);
-  window.fetch = async (input: RequestInfo, init?: RequestInit) => {
+  // @ts-ignore
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const method = init?.method ?? "GET";
     const url = typeof input === "string" ? input : (input instanceof URL ? input.href : (input as Request).url || String(input));
     const start = Date.now();

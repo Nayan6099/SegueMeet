@@ -8,6 +8,7 @@ import {
   Matches,
 } from 'class-validator';
 import { MeetingStatus } from '@prisma/client';
+import { IsIanaTimeZone } from '../../common/validators/is-timezone.validator';
 
 export class CreateMeetingDto {
   @IsUUID()
@@ -44,6 +45,10 @@ export class CreateMeetingDto {
   location: string;
 
   @IsOptional()
+  @IsIanaTimeZone()
+  timeZone?: string;
+
+  @IsOptional()
   @IsBoolean()
   isRemote?: boolean;
 
@@ -61,4 +66,12 @@ export class CreateMeetingDto {
 
   @IsOptional()
   attendeeIds?: string[];
+
+  @IsOptional()
+  @IsUUID()
+  committeeId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  committeeVisible?: boolean;
 }

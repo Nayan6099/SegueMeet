@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../../common/database/prisma.service';
+import { TokenBlocklistService } from '../token-blocklist.service';
 import {
   type JwtPayload,
   type AuthenticatedUser,
@@ -20,6 +21,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     configService: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly tokenBlocklistService: TokenBlocklistService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -29,6 +31,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload): Promise<AuthenticatedUser> {
+    if (payload.jti && this.tokenBlocklistService.isTokenRevoked(payload.jti)) {
+      throw new UnauthorizedException('Token has been revoked');
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       select: SAFE_USER_SELECT,

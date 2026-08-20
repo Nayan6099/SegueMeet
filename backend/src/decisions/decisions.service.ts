@@ -27,16 +27,43 @@ export class DecisionsService {
   // ---------------------------------------------------------------------
   // Decision list / get
   // ---------------------------------------------------------------------
-  async getDecisions(organisationId: string, skipQuery: string, takeQuery: string, user: AuthenticatedUser) {
+  async getDecisions(organisationId: string, committeeIdQuery: string, skipQuery: string, takeQuery: string, user: AuthenticatedUser) {
     await this.organisationsService.requireMembership(organisationId, user.id);
 
     try {
       const skip = skipQuery ? Number(skipQuery) : 0;
       const take = takeQuery ? Number(takeQuery) : 50;
 
+      const isManager = await this.organisationsService.hasAnyRole(
+        organisationId,
+        user.id,
+        CAN_MANAGE_DECISIONS
+      );
+
+      const where: any = { organisationId };
+      
+      if (committeeIdQuery) {
+        where.committeeId = committeeIdQuery;
+      }
+
+      if (!isManager) {
+        where.OR = [
+          { committeeId: null, meetingId: null },
+          // Visibility through meeting attendance
+          {
+            meeting: { attendees: { some: { userId: user.id } } }
+          },
+          // Visibility through committee membership
+          {
+            committeeVisible: true,
+            committee: { members: { some: { userId: user.id } } }
+          }
+        ];
+      }
+
       const [data, total] = await Promise.all([
         this.prisma.decision.findMany({
-          where: { organisationId },
+          where,
           include: {
             meeting: { select: { id: true, title: true } },
           },
@@ -44,7 +71,7 @@ export class DecisionsService {
           skip,
           take,
         }),
-        this.prisma.decision.count({ where: { organisationId } }),
+        this.prisma.decision.count({ where }),
       ]);
 
       return { data, total, skip, take };
@@ -60,10 +87,35 @@ export class DecisionsService {
   async getDecisionById(decisionId: string, user: AuthenticatedUser) {
     const decision = await this.prisma.decision.findUnique({
       where: { id: decisionId },
-      include: { meeting: true, votes: true },
+      include: { meeting: { include: { attendees: true } }, votes: true },
     });
     if (!decision) throw new NotFoundException('Decision not found');
     await this.organisationsService.requireMembership(decision.organisationId, user.id);
+
+    const isManager = await this.organisationsService.hasAnyRole(
+      decision.organisationId,
+      user.id,
+      CAN_MANAGE_DECISIONS
+    );
+
+    if (!isManager) {
+      const isAttendee = decision.meeting?.attendees.some(a => a.userId === user.id);
+      
+      let isCommitteeVisibleMember = false;
+      if (decision.committeeVisible && decision.committeeId) {
+        const committeeMember = await this.prisma.committeeMember.findUnique({
+          where: { committeeId_userId: { committeeId: decision.committeeId, userId: user.id } }
+        });
+        if (committeeMember) isCommitteeVisibleMember = true;
+      }
+
+      if (decision.meetingId || decision.committeeId) {
+        if (!isAttendee && !isCommitteeVisibleMember) {
+          throw new ForbiddenException('You are not authorized to view this decision');
+        }
+      }
+    }
+
     return decision;
   }
 
@@ -74,16 +126,19 @@ export class DecisionsService {
     const { organisationId } = dto;
     await this.organisationsService.requireRole(organisationId, user.id, CAN_MANAGE_DECISIONS);
     try {
-      const decision = await this.prisma.decision.create({
-        data: { ...dto, createdById: user.id },
-      });
-      await this.auditService.log({
-        organisationId,
-        actorId: user.id,
-        action: 'decision.created',
-        entityType: 'Decision',
-        entityId: decision.id,
-        payload: { dto },
+      const decision = await this.prisma.$transaction(async (tx) => {
+        const d = await tx.decision.create({
+          data: { ...dto, createdById: user.id },
+        });
+        await this.auditService.logTx(tx, {
+          organisationId,
+          actorId: user.id,
+          action: 'decision.created',
+          entityType: 'Decision',
+          entityId: d.id,
+          payload: { dto },
+        });
+        return d;
       });
       return decision;
     } catch (error) {
@@ -100,17 +155,20 @@ export class DecisionsService {
       throw new BadRequestException('Cannot modify a closed decision');
     }
     try {
-      const updated = await this.prisma.decision.update({
-        where: { id: decisionId },
-        data: dto,
-      });
-      await this.auditService.log({
-        organisationId: decision.organisationId,
-        actorId: user.id,
-        action: 'decision.updated',
-        entityType: 'Decision',
-        entityId: decisionId,
-        payload: { dto },
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const u = await tx.decision.update({
+          where: { id: decisionId },
+          data: dto,
+        });
+        await this.auditService.logTx(tx, {
+          organisationId: decision.organisationId,
+          actorId: user.id,
+          action: 'decision.updated',
+          entityType: 'Decision',
+          entityId: decisionId,
+          payload: { dto },
+        });
+        return u;
       });
       return updated;
     } catch (error) {
@@ -127,17 +185,20 @@ export class DecisionsService {
       throw new BadRequestException('Decision already closed');
     }
     try {
-      const closed = await this.prisma.decision.update({
-        where: { id: decisionId },
-        data: { status: DecisionStatus.CLOSED },
-      });
-      await this.auditService.log({
-        organisationId: decision.organisationId,
-        actorId: user.id,
-        action: 'decision.closed',
-        entityType: 'Decision',
-        entityId: decisionId,
-        payload: {},
+      const closed = await this.prisma.$transaction(async (tx) => {
+        const c = await tx.decision.update({
+          where: { id: decisionId },
+          data: { status: DecisionStatus.CLOSED },
+        });
+        await this.auditService.logTx(tx, {
+          organisationId: decision.organisationId,
+          actorId: user.id,
+          action: 'decision.closed',
+          entityType: 'Decision',
+          entityId: decisionId,
+          payload: {},
+        });
+        return c;
       });
       return closed;
     } catch (error) {
@@ -166,21 +227,24 @@ export class DecisionsService {
       }
     }
     try {
-      const vote = await this.prisma.decisionVote.create({
-        data: {
-          decisionId,
-          voterId: user.id,
-          vote: voteDto.vote,
-          comment: voteDto.comment,
-        },
-      });
-      await this.auditService.log({
-        organisationId: decision.organisationId,
-        actorId: user.id,
-        action: 'decision.voted',
-        entityType: 'DecisionVote',
-        entityId: vote.id,
-        payload: { voteDto },
+      const vote = await this.prisma.$transaction(async (tx) => {
+        const v = await tx.decisionVote.create({
+          data: {
+            decisionId,
+            voterId: user.id,
+            vote: voteDto.vote,
+            comment: voteDto.comment,
+          },
+        });
+        await this.auditService.logTx(tx, {
+          organisationId: decision.organisationId,
+          actorId: user.id,
+          action: 'decision.voted',
+          entityType: 'DecisionVote',
+          entityId: v.id,
+          payload: { voteDto },
+        });
+        return v;
       });
       return vote;
     } catch (error: any) {
@@ -209,20 +273,23 @@ export class DecisionsService {
       throw new BadRequestException('Cannot change vote on a closed decision');
     }
     try {
-      const updated = await this.prisma.decisionVote.update({
-        where: { id: voteId },
-        data: {
-          vote: voteDto.vote ?? undefined,
-          comment: voteDto.comment ?? undefined,
-        },
-      });
-      await this.auditService.log({
-        organisationId: decision.organisationId,
-        actorId: user.id,
-        action: 'decision.vote_updated',
-        entityType: 'DecisionVote',
-        entityId: voteId,
-        payload: { voteDto },
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const u = await tx.decisionVote.update({
+          where: { id: voteId },
+          data: {
+            vote: voteDto.vote ?? undefined,
+            comment: voteDto.comment ?? undefined,
+          },
+        });
+        await this.auditService.logTx(tx, {
+          organisationId: decision.organisationId,
+          actorId: user.id,
+          action: 'decision.vote_updated',
+          entityType: 'DecisionVote',
+          entityId: voteId,
+          payload: { voteDto },
+        });
+        return u;
       });
       return updated;
     } catch (error) {
@@ -240,7 +307,7 @@ export class DecisionsService {
       where: { decisionId },
       _count: { _all: true },
     });
-    const totals: any = { FOR: 0, AGAINST: 0, ABSTAIN: 0, TOTAL: 0 };
+    const totals: any = { IN_FAVOUR: 0, AGAINST: 0, ABSTAIN: 0, TOTAL: 0 };
     for (const item of summary) {
       totals[item.vote] = item._count._all;
       totals.TOTAL += item._count._all;

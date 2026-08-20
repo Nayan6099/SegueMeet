@@ -164,8 +164,8 @@ export function EditCommitteeModal({
               </p>
               
               <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="sm">Delete Committee</Button>
+                <AlertDialogTrigger render={<Button variant="destructive" size="sm" />}>
+                  Delete Committee
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
@@ -190,7 +190,7 @@ export function EditCommitteeModal({
             <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 flex flex-col sm:flex-row gap-3 items-end">
               <div className="flex-1 w-full space-y-1.5">
                 <Label className="text-xs text-slate-500">Select Person</Label>
-                <Select value={newMemberId} onValueChange={setNewMemberId}>
+                <Select value={newMemberId} onValueChange={(val) => val && setNewMemberId(val)}>
                   <SelectTrigger className="bg-white">
                     <SelectValue placeholder="Select a member..." />
                   </SelectTrigger>
@@ -209,7 +209,7 @@ export function EditCommitteeModal({
               </div>
               <div className="w-full sm:w-[150px] space-y-1.5">
                 <Label className="text-xs text-slate-500">Role</Label>
-                <Select value={newMemberRole} onValueChange={setNewMemberRole}>
+                <Select value={newMemberRole} onValueChange={(val) => val && setNewMemberRole(val)}>
                   <SelectTrigger className="bg-white">
                     <SelectValue placeholder="Role" />
                   </SelectTrigger>

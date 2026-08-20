@@ -2,6 +2,7 @@ import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common
 import { PrismaService } from '../common/database/prisma.service';
 import { OrganisationsService } from '../organisations/organisations.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
+import { CAN_MANAGE_MEETINGS, CAN_MANAGE_DOCUMENTS } from '../common/auth/roles.constants';
 
 @Injectable()
 export class SearchService {
@@ -23,29 +24,83 @@ export class SearchService {
         return { meetings: [], documents: [], people: [] };
       }
 
+      const isManagerForMeetings = await this.organisationsService.hasAnyRole(
+        organisationId,
+        user.id,
+        CAN_MANAGE_MEETINGS
+      );
+
+      const isManagerForDocuments = await this.organisationsService.hasAnyRole(
+        organisationId,
+        user.id,
+        CAN_MANAGE_DOCUMENTS
+      );
+
+      const meetingsWhere: any = {
+        organisationId,
+        OR: [
+          { title: { contains: query, mode: 'insensitive' } },
+          { notes: { contains: query, mode: 'insensitive' } },
+        ],
+      };
+
+      if (!isManagerForMeetings) {
+        meetingsWhere.attendees = {
+          some: { userId: user.id }
+        };
+      }
+
+      const documentsWhere: any = {
+        organisationId,
+        OR: [
+          { originalName: { contains: query, mode: 'insensitive' } },
+        ],
+      };
+
+      if (!isManagerForDocuments) {
+        documentsWhere.AND = [
+          {
+            OR: [
+              { uploadedById: user.id },
+              { accessRules: { some: { userId: user.id } } },
+              {
+                accessRules: { none: {} },
+                meetingId: null,
+                agendaItemId: null,
+              },
+              {
+                accessRules: { none: {} },
+                meeting: {
+                  attendees: { some: { userId: user.id } }
+                }
+              },
+              {
+                accessRules: { none: {} },
+                agendaItem: {
+                  section: {
+                    meeting: {
+                      attendees: { some: { userId: user.id } }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ];
+      }
+
       // 2. Perform concurrent queries
       const [meetings, documents, people] = await Promise.all([
         // Search Meetings
         this.prisma.meeting.findMany({
-          where: {
-            organisationId,
-            OR: [
-              { title: { contains: query, mode: 'insensitive' } },
-              { notes: { contains: query, mode: 'insensitive' } },
-            ],
-          },
+          where: meetingsWhere,
           orderBy: { date: 'desc' },
           take: 20,
         }),
         
         // Search Documents
         this.prisma.document.findMany({
-          where: {
-            organisationId,
-            OR: [
-              { originalName: { contains: query, mode: 'insensitive' } },
-            ],
-          },
+          where: documentsWhere,
           orderBy: { createdAt: 'desc' },
           take: 20,
         }),

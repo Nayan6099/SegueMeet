@@ -21,8 +21,9 @@ import {
 import { api } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AgendaSection, AgendaItem } from "@/lib/types";
-import { Loader2, Trash2, UserPlus } from "lucide-react";
+import { Loader2, Trash2, UserPlus, Link as LinkIcon, X } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { LinkPlanItemModal } from "@/components/meetings/link-plan-item-modal";
 
 const purposeLabels: Record<AgendaItem["purpose"], string> = {
   none: "—",
@@ -90,11 +91,12 @@ export default function AgendaBuilderPage() {
   });
 
   const createItem = useMutation({
-    mutationFn: async (sectionId: string) => {
+    mutationFn: async ({ sectionId, planItemId, title }: { sectionId: string; planItemId?: string; title?: string }) => {
       return api.post(`/agenda/sections/${sectionId}/items`, {
-        title: "New agenda item",
+        title: title || "New agenda item",
         purpose: "NONE",
         durationMinutes: 5,
+        planItemId,
       });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["agenda", meetingId] }),
@@ -192,8 +194,31 @@ export default function AgendaBuilderPage() {
               {section.items.map((item: any) => (
                 <div
                   key={item.id}
-                  className="grid grid-cols-12 items-center gap-2 rounded-md border border-border p-3"
+                  className="rounded-md border border-border p-3 space-y-3"
                 >
+                  {item.planItem && (
+                    <div className="flex items-center gap-2 text-xs bg-muted p-2 rounded-md border border-border/50">
+                      <LinkIcon className="h-3 w-3 text-muted-foreground" />
+                      <span className="font-medium">Annual Plan Linked:</span>
+                      <span className="text-muted-foreground truncate">{item.planItem.title}</span>
+                      <Badge variant="outline" className="text-[10px] h-4 py-0 ml-1">
+                        M{item.planItem.month}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] h-4 py-0">
+                        {item.planItem.status.replace("_", " ")}
+                      </Badge>
+                      {!disabled && (
+                        <button
+                          onClick={() => updateItemCall.mutate({ itemId: item.id, patch: { planItemId: null } })}
+                          className="ml-auto text-muted-foreground hover:text-destructive"
+                          title="Unlink Plan Item"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-12 items-center gap-2">
                   <Input
                     className="col-span-4"
                     key={item.title}
@@ -292,17 +317,24 @@ export default function AgendaBuilderPage() {
                       </button>
                     </div>
                   )}
+                  </div>
                 </div>
               ))}
             </div>
 
             {!disabled && (
-              <button
-                onClick={() => createItem.mutate(section.id)}
-                className="mt-3 text-sm font-medium text-primary hover:underline"
-              >
-                + Add agenda item
-              </button>
+              <div className="mt-3 flex items-center gap-3">
+                <button
+                  onClick={() => createItem.mutate({ sectionId: section.id })}
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  + Add agenda item
+                </button>
+                <LinkPlanItemModal
+                  organisationId={meeting.organisationId}
+                  onSelect={(planItem) => createItem.mutate({ sectionId: section.id, planItemId: planItem.id, title: planItem.title })}
+                />
+              </div>
             )}
           </div>
         ))}

@@ -74,6 +74,7 @@ export default function PeoplePage() {
           <thead className="bg-gray-50 text-slate-500 border-b">
             <tr>
               <th className="px-6 py-4 font-medium">Name</th>
+              <th className="px-6 py-4 font-medium">Designation</th>
               <th className="px-6 py-4 font-medium">Roles</th>
               <th className="px-6 py-4 font-medium">Email</th>
               <th className="px-6 py-4 font-medium">Status</th>
@@ -88,6 +89,9 @@ export default function PeoplePage() {
                     {person.user.name.charAt(0).toUpperCase()}
                   </div>
                   {person.user.name}
+                </td>
+                <td className="px-6 py-4 text-slate-600">
+                  {person.designation || <span className="text-slate-400 italic">None</span>}
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex flex-wrap gap-2">
@@ -231,22 +235,6 @@ export default function PeoplePage() {
           ) : (
             <>
           
-          {/* Email Confirmation Banner (Mock) */}
-          <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex gap-3 text-sm">
-            <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-slate-800">Confirm your email</p>
-              <p className="text-slate-600 mt-1">
-                Check inbox to confirm your email address. Didn't receive the email?{" "}
-                <button 
-                  onClick={() => window.alert("Email verification service is coming in the next phase!")}
-                  className="font-semibold underline hover:text-slate-800"
-                >
-                  Resend
-                </button>
-              </p>
-            </div>
-          </div>
 
           <div>
             <h3 className="text-lg font-semibold text-slate-800 mb-4">Board Members</h3>
@@ -264,7 +252,7 @@ export default function PeoplePage() {
         </TabsContent>
         
         <TabsContent value="profile" className="mt-0">
-          <BoardProfileTab onManageTenure={() => setIsManageTenureOpen(true)} />
+          <BoardProfileTab onManageTenure={() => setIsManageTenureOpen(true)} person={{ user }} />
         </TabsContent>
         <TabsContent value="changes" className="mt-0">
           {orgId && <ChangesLogTab organisationId={orgId} />}

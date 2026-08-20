@@ -69,21 +69,39 @@ export default function DocumentsPage() {
     </div>
   );
 
+  const handleDownload = async (doc: any) => {
+    try {
+      const res = await api.get(`/documents/${doc.id}/download`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: doc.mimeType }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.originalName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error("Failed to download document", err);
+    }
+  };
+
   const DocumentRow = ({ doc }: { doc: any }) => (
-    <a href={doc.storagePath} target="_blank" rel="noreferrer" className="flex items-center justify-between p-4 border rounded-xl hover:border-primary transition-colors bg-white shadow-sm group">
+    <div onClick={() => handleDownload(doc)} className="flex items-center justify-between p-4 border rounded-xl hover:border-primary transition-colors bg-white shadow-sm group cursor-pointer">
       <div className="flex items-center gap-4">
         <div className="p-2 bg-red-50 text-red-500 rounded-lg group-hover:bg-red-100 transition-colors">
           <FileText className="w-5 h-5" />
         </div>
         <div>
           <h4 className="font-medium text-slate-800">{doc.originalName}</h4>
-          <p className="text-xs text-slate-500 mt-1">{(doc.sizeBytes / 1024).toFixed(1)} KB • Uploaded {new Date(doc.createdAt).toLocaleDateString()}</p>
+          <p className="text-xs text-slate-500 mt-1">
+            {(doc.sizeBytes / 1024).toFixed(1)} KB • Uploaded by {doc.uploadedBy?.name || "Unknown"} on {new Date(doc.createdAt).toLocaleDateString()}
+          </p>
         </div>
       </div>
       <Button variant="ghost" size="icon" className="text-slate-400 group-hover:text-primary">
         <Download className="w-4 h-4" />
       </Button>
-    </a>
+    </div>
   );
 
   return (

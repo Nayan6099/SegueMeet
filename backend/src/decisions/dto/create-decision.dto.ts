@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsUUID, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsUUID, IsDateString, IsBoolean } from 'class-validator';
 
 export class CreateDecisionDto {
   @IsUUID()
@@ -21,4 +21,12 @@ export class CreateDecisionDto {
   @IsOptional()
   @IsDateString()
   votingEndsAt?: string; // ISO datetime
+
+  @IsOptional()
+  @IsUUID()
+  committeeId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  committeeVisible?: boolean;
 }

@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsInt,
   Min,
+  IsUUID,
 } from 'class-validator';
 import { AgendaItemPurpose } from '@prisma/client';
 
@@ -30,4 +31,8 @@ export class CreateAgendaItemDto {
   @IsInt()
   @Min(0)
   position?: number;
+
+  @IsOptional()
+  @IsUUID()
+  planItemId?: string;
 }

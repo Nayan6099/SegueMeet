@@ -22,6 +22,9 @@ import { InterestsModule } from './interests/interests.module';
 import { MailModule } from './mail/mail.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+import { GlobalThrottlerGuard } from './common/guards/global-throttler.guard';
 
 @Module({
   imports: [
@@ -35,6 +38,16 @@ import { ScheduleModule } from '@nestjs/schedule';
       isGlobal: true,
       envFilePath: '.env',
     }),
+
+    /**
+     * ThrottlerModule for rate limiting. 
+     * In-memory storage for development. For horizontal scaling in production,
+     * this can be swapped with throttler-storage-redis.
+     */
+    ThrottlerModule.forRoot([{
+      ttl: 60000,
+      limit: 100,
+    }]),
 
     /**
      * DatabaseModule is @Global and provides PrismaService to all modules
@@ -94,6 +107,12 @@ import { ScheduleModule } from '@nestjs/schedule';
     AnalyticsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: GlobalThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

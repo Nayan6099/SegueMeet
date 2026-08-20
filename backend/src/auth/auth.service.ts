@@ -6,10 +6,13 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import { OrganisationRole } from '@prisma/client';
 import { PrismaService } from '../common/database/prisma.service';
+import { TokenBlocklistService } from './token-blocklist.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import {
   type JwtPayload,
@@ -25,6 +28,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly tokenBlocklistService: TokenBlocklistService,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -163,17 +167,12 @@ export class AuthService {
   // LOGOUT
   // ─────────────────────────────────────────────
 
-  logout() {
-    /**
-     * JWT tokens are stateless — the server cannot invalidate an already-issued
-     * token without a revocation store (e.g. Redis blocklist).
-     *
-     * For Phase 2, clients should discard the access token on their side.
-     * Token revocation can be added in a future security hardening phase.
-     */
+  logout(jti?: string, exp?: number) {
+    if (jti && exp) {
+      this.tokenBlocklistService.revokeToken(jti, exp);
+    }
     return {
-      message:
-        'Logged out successfully. Please discard your access token on the client side.',
+      message: 'Logged out successfully.',
     };
   }
 
@@ -230,7 +229,7 @@ export class AuthService {
   // ─────────────────────────────────────────────
 
   private issueToken(userId: string, email: string): string {
-    const payload: JwtPayload = { sub: userId, email };
+    const payload: JwtPayload = { sub: userId, email, jti: randomUUID() };
     return this.jwtService.sign(payload);
   }
 }

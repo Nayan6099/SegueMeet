@@ -5,6 +5,7 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { TokenBlocklistService } from './token-blocklist.service';
 
 @Module({
   imports: [
@@ -26,11 +27,11 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, TokenBlocklistService],
   /**
    * Export JwtAuthGuard and JwtStrategy so that other modules (e.g. future
    * decorators or policy-based auth) can reuse them without re-importing.
    */
-  exports: [AuthService, JwtModule, PassportModule],
+  exports: [AuthService, JwtModule, PassportModule, TokenBlocklistService],
 })
 export class AuthModule {}

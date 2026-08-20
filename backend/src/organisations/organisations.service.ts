@@ -24,12 +24,15 @@ import {
   CAN_VIEW_AUDIT_LOGS
 } from '../common/auth/roles.constants';
 
+import { MailService } from '../mail/mail.service';
+
 @Injectable()
 export class OrganisationsService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(forwardRef(() => AuditService))
     private readonly auditService: AuditService,
+    private readonly mailService: MailService,
   ) {}
 
   // ─────────────────────────────────────────────
@@ -71,26 +74,30 @@ export class OrganisationsService {
    * Creates an organisation and sets the creator as BOARD_ADMIN.
    */
   async create(dto: CreateOrganisationDto, requestingUser: AuthenticatedUser) {
-    const org = await this.prisma.organisation.create({
-      data: {
-        name: dto.name.trim(),
-        members: {
-          create: {
-            userId: requestingUser.id,
-            role: OrganisationRole.BOARD_ADMIN,
+    const org = await this.prisma.$transaction(async (tx) => {
+      const o = await tx.organisation.create({
+        data: {
+          name: dto.name.trim(),
+          members: {
+            create: {
+              userId: requestingUser.id,
+              role: OrganisationRole.BOARD_ADMIN,
+            }
           }
-        }
-      },
-      select: { id: true, name: true, settings: true, createdAt: true, updatedAt: true }
-    });
+        },
+        select: { id: true, name: true, settings: true, createdAt: true, updatedAt: true }
+      });
 
-    this.auditService.log({
-      organisationId: org.id,
-      actorId: requestingUser.id,
-      action: 'organisation.created',
-      entityType: 'Organisation',
-      entityId: org.id,
-      payload: { name: org.name },
+      await this.auditService.logTx(tx, {
+        organisationId: o.id,
+        actorId: requestingUser.id,
+        action: 'organisation.created',
+        entityType: 'Organisation',
+        entityId: o.id,
+        payload: { name: o.name },
+      });
+
+      return o;
     });
 
     return org;
@@ -116,29 +123,33 @@ export class OrganisationsService {
       throw new NotFoundException('Organisation not found');
     }
 
-    const updatedOrg = await this.prisma.organisation.update({
-      where: { id: organisationId },
-      data: {
-        ...(dto.name !== undefined && { name: dto.name.trim() }),
-        ...(dto.settings !== undefined && {
-          settings: dto.settings as Prisma.InputJsonValue,
-        }),
-      },
-      select: {
-        id: true,
-        name: true,
-        settings: true,
-        updatedAt: true,
-      },
-    });
+    const updatedOrg = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.organisation.update({
+        where: { id: organisationId },
+        data: {
+          ...(dto.name !== undefined && { name: dto.name.trim() }),
+          ...(dto.settings !== undefined && {
+            settings: dto.settings as Prisma.InputJsonValue,
+          }),
+        },
+        select: {
+          id: true,
+          name: true,
+          settings: true,
+          updatedAt: true,
+        },
+      });
 
-    this.auditService.log({
-      organisationId,
-      actorId: requestingUser.id,
-      action: 'organisation.updated',
-      entityType: 'Organisation',
-      entityId: organisationId,
-      payload: { name: dto.name, settings: dto.settings },
+      await this.auditService.logTx(tx, {
+        organisationId,
+        actorId: requestingUser.id,
+        action: 'organisation.updated',
+        entityType: 'Organisation',
+        entityId: organisationId,
+        payload: { name: dto.name, settings: dto.settings },
+      });
+
+      return u;
     });
 
     return updatedOrg;
@@ -198,29 +209,23 @@ export class OrganisationsService {
 
     const orgExists = await this.prisma.organisation.findUnique({
       where: { id: organisationId },
-      select: { id: true },
+      select: { id: true, name: true },
     });
     if (!orgExists) {
       throw new NotFoundException('Organisation not found');
     }
 
-    // Look up the target user by email, or create them if they don't exist
-    let targetUser = await this.prisma.user.findUnique({
+    const targetUser = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase().trim() },
       select: { id: true, email: true, name: true },
     });
-    
+
     if (!targetUser) {
-      targetUser = await this.prisma.user.create({
-        data: {
-          email: dto.email.toLowerCase().trim(),
-          name: dto.name || 'New User',
-        },
-        select: { id: true, email: true, name: true },
-      });
+      throw new NotFoundException(
+        'No SegueMeet account exists for this email. The person must create an account first.',
+      );
     }
 
-    // Check they are not already a member
     const existingMembership = await this.prisma.organisationMember.findUnique({
       where: {
         organisationId_userId: {
@@ -229,43 +234,66 @@ export class OrganisationsService {
         },
       },
     });
+    
     if (existingMembership) {
       throw new ConflictException(
         `${dto.email} is already a member of this organisation`,
       );
     }
 
-    const membership = await this.prisma.organisationMember.create({
-      data: {
-        organisationId,
-        userId: targetUser.id,
-        role: dto.role,
-      },
-      select: {
-        id: true,
-        role: true,
-        joinedAt: true,
-        user: {
-          select: {
-            id: true,
-            email: true,
-            name: true,
+    const membership = await this.prisma.$transaction(async (tx) => {
+      const m = await tx.organisationMember.create({
+        data: {
+          organisationId,
+          userId: targetUser.id,
+          role: dto.role,
+          designation: (dto as any).designation || null, // Will type the DTO next
+        },
+        select: {
+          id: true,
+          role: true,
+          designation: true,
+          joinedAt: true,
+          user: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+            },
           },
         },
-      },
+      });
+
+      await this.auditService.logTx(tx, {
+        organisationId,
+        actorId: requestingUser.id,
+        action: 'organisation.member_added',
+        entityType: 'OrganisationMember',
+        entityId: m.id,
+        payload: { userId: targetUser.id, role: dto.role, designation: (dto as any).designation },
+      });
+
+      return m;
     });
 
-    this.auditService.log({
-      organisationId,
-      actorId: requestingUser.id,
-      action: 'organisation.member_added',
-      entityType: 'OrganisationMember',
-      entityId: membership.id,
-      payload: { userId: targetUser.id, role: dto.role },
+    // Send the member added email
+    // This runs asynchronously in the background and does not block or fail the transaction
+    this.mailService.sendMemberAddedEmail(
+      dto.email,
+      targetUser.name,
+      orgExists.name,
+      dto.role,
+      (dto as any).designation || null,
+      requestingUser.name,
+    ).catch(error => {
+      // Catch any unexpected errors outside the try-catch in MailService just in case
+      console.error('Unexpected error while sending member added email:', error);
     });
 
     return membership;
   }
+
+
 
   /**
    * PATCH /organisations/:id/members/:userId
@@ -275,7 +303,7 @@ export class OrganisationsService {
   async updateMember(
     organisationId: string,
     targetUserId: string,
-    dto: { role?: any; tenureEndDate?: string | null },
+    dto: { role?: any; tenureEndDate?: string | null; designation?: string | null },
     requestingUser: AuthenticatedUser,
   ) {
     await this.requireRole(organisationId, requestingUser.id, CAN_CHANGE_MEMBER_ROLES);
@@ -293,26 +321,31 @@ export class OrganisationsService {
       throw new NotFoundException('Member not found in this organisation');
     }
 
-    const updated = await this.prisma.organisationMember.update({
-      where: { id: membership.id },
-      data: {
-        ...(dto.role && { role: dto.role }),
-        ...(dto.tenureEndDate !== undefined && { tenureEndDate: dto.tenureEndDate }),
-      },
-      select: {
-        id: true,
-        role: true,
-        user: { select: { id: true, name: true, email: true } }
-      }
-    });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.organisationMember.update({
+        where: { id: membership.id },
+        data: {
+          ...(dto.role && { role: dto.role }),
+          ...(dto.tenureEndDate !== undefined && { tenureEndDate: dto.tenureEndDate }),
+          ...(dto.designation !== undefined && { designation: dto.designation }),
+        },
+        select: {
+          id: true,
+          role: true,
+          user: { select: { id: true, name: true, email: true } }
+        }
+      });
 
-    this.auditService.log({
-      organisationId,
-      actorId: requestingUser.id,
-      action: 'organisation.member_updated',
-      entityType: 'OrganisationMember',
-      entityId: membership.id,
-      payload: { role: updated.role },
+      await this.auditService.logTx(tx, {
+        organisationId,
+        actorId: requestingUser.id,
+        action: 'organisation.member_updated',
+        entityType: 'OrganisationMember',
+        entityId: membership.id,
+        payload: { role: u.role },
+      });
+
+      return u;
     });
 
     return updated;
@@ -378,18 +411,19 @@ export class OrganisationsService {
       }
     }
 
-    // Delete the membership record (NOT the user account)
-    await this.prisma.organisationMember.delete({
-      where: { id: membership.id },
-    });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.organisationMember.delete({
+        where: { id: membership.id },
+      });
 
-    this.auditService.log({
-      organisationId,
-      actorId: requestingUser.id,
-      action: 'organisation.member_removed',
-      entityType: 'OrganisationMember',
-      entityId: membership.id,
-      payload: { userId: targetUserId, role: membership.role },
+      await this.auditService.logTx(tx, {
+        organisationId,
+        actorId: requestingUser.id,
+        action: 'organisation.member_removed',
+        entityType: 'OrganisationMember',
+        entityId: membership.id,
+        payload: { userId: targetUserId, role: membership.role },
+      });
     });
 
     return { message: 'Member removed from the organisation successfully' };

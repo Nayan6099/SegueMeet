@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { ClipboardList, ExternalLink, FileUp, PlusSquare, Loader2, Calendar, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { useGetAnnualPlans, useCreateAnnualPlan, useDeleteAnnualPlan, useCreatePlanItemsBulk, useDeletePlanItem } from "@/hooks/use-annual-plan";
@@ -110,8 +111,8 @@ export default function AnnualWorkPlanPage() {
         fileInputRef.current.value = "";
       }
     } catch (error) {
-      console.error("Failed to import CSV", error);
-      alert("Failed to import CSV. Ensure it has headers like Month, Title, Description, Status.");
+      console.error(error);
+      toast.error("Failed to import CSV. Ensure it has headers like Month, Title, Description, Status.");
     } finally {
       setIsUploading(false);
     }
@@ -130,7 +131,7 @@ export default function AnnualWorkPlanPage() {
           </h1>
         </div>
         <div className="flex items-center gap-3">
-          <Select value={selectedYear.toString()} onValueChange={(val) => setSelectedYear(parseInt(val, 10))}>
+          <Select value={selectedYear.toString()} onValueChange={(val) => val && setSelectedYear(parseInt(val, 10))}>
             <SelectTrigger className="w-[120px] bg-white">
               <SelectValue placeholder="Year" />
             </SelectTrigger>
@@ -242,11 +243,11 @@ export default function AnnualWorkPlanPage() {
               </Label>
 
               <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" className="h-9 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200">
+                <AlertDialogTrigger render={<Button variant="outline" className="h-9 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200" />}>
+                  <div className="flex items-center">
                     <Trash2 className="w-4 h-4 mr-2" />
                     Reset Entire Plan
-                  </Button>
+                  </div>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>

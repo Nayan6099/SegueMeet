@@ -13,6 +13,7 @@ import {
   Header,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { MeetingsService } from './meetings.service';
 import { CreateMeetingDto } from './dto/create-meeting.dto';
 import { UpdateMeetingDto } from './dto/update-meeting.dto';
@@ -28,6 +29,7 @@ export class MeetingsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async create(
     @Body() createMeetingDto: CreateMeetingDto,
     @CurrentUser() user: AuthenticatedUser,
@@ -53,6 +55,7 @@ export class MeetingsController {
   }
 
   @Patch(':id')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   update(
     @Param('id') id: string,
     @Body() updateMeetingDto: UpdateMeetingDto,
@@ -63,12 +66,14 @@ export class MeetingsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.meetingsService.deleteMeeting(id, user);
   }
 
   @Post(':id/attendees')
   @HttpCode(HttpStatus.CREATED)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   addAttendee(
     @Param('id') id: string,
     @Body('userId') userId: string,

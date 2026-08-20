@@ -1,51 +1,234 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Resend } from 'resend';
+import * as nodemailer from 'nodemailer';
+import ical, { ICalCalendarMethod, ICalEventStatus } from 'ical-generator';
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private resend: Resend;
+  private transporter: nodemailer.Transporter;
 
   constructor() {
-    const apiKey = process.env.RESEND_API_KEY || 're_dummy_key';
-    this.resend = new Resend(apiKey);
+    this.transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '587', 10),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASSWORD,
+      },
+    });
   }
 
-  async sendMeetingInvite(to: string, meetingTitle: string, meetingDate: string, meetingTime: string, videoLink?: string | null, location?: string | null) {
+  async sendMemberAddedEmail(to: string, recipientName: string, orgName: string, role: string, designation: string | null, actorName: string) {
     try {
-      let htmlContent = `
-        <h1>You're invited to a meeting!</h1>
-        <p><strong>Meeting:</strong> ${meetingTitle}</p>
-        <p><strong>Date:</strong> ${meetingDate}</p>
-        <p><strong>Time:</strong> ${meetingTime}</p>
+      const loginUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      
+      const htmlContent = `
+        <h2>Hello ${recipientName},</h2>
+        <p><strong>${actorName}</strong> has added you to <strong>${orgName}</strong> on SegueMeet.</p>
+        <p><strong>Role:</strong> ${role}</p>
+        ${designation ? `<p><strong>Designation:</strong> ${designation}</p>` : ''}
+        <br/>
+        <p>Please log in to your dashboard to view your new board: <a href="${loginUrl}">${loginUrl}</a></p>
       `;
 
-      if (videoLink) {
-        htmlContent += `<p><strong>Video Link:</strong> <a href="${videoLink}">${videoLink}</a></p>`;
-      }
+      const info = await this.transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to,
+        subject: `You have been added to ${orgName}`,
+        html: htmlContent,
+      });
 
-      if (location) {
-        htmlContent += `<p><strong>Location:</strong> ${location}</p>`;
+      this.logger.log(`Member added email sent to ${to} (ID: ${info.messageId})`);
+      return { success: true, messageId: info.messageId };
+    } catch (error: any) {
+      this.logger.error(`Failed to send member added email to ${to}: ${error.message}`);
+      return { success: false, error };
+    }
+  }
+
+  private parseLocalTime(dateStr: string, timeStr: string): Date {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const [hour, minute] = timeStr.split(':').map(Number);
+    return new Date(Date.UTC(year, month - 1, day, hour, minute));
+  }
+
+  private buildIcalString(meeting: any, method: ICalCalendarMethod, sequence: number, isCancelled = false): string {
+    const cal = ical({
+      name: meeting.title,
+      method: method,
+    });
+    
+    const tz = meeting.timeZone;
+    const startObj = tz ? `${meeting.date}T${meeting.startTime}:00` : this.parseLocalTime(meeting.date, meeting.startTime);
+    const endObj = tz ? `${meeting.date}T${meeting.endTime}:00` : this.parseLocalTime(meeting.date, meeting.endTime);
+    
+    cal.createEvent({
+      start: startObj,
+      end: endObj,
+      summary: meeting.title,
+      description: meeting.notes || '',
+      location: meeting.location,
+      id: meeting.id,
+      sequence: sequence,
+      status: isCancelled ? ICalEventStatus.CANCELLED : ICalEventStatus.CONFIRMED,
+      timezone: tz || undefined,
+      floating: !tz,
+    });
+
+    return cal.toString();
+  }
+
+  async sendMeetingInvite(
+    to: string,
+    meeting: any,
+    orgName: string,
+    actorName: string,
+  ) {
+    try {
+      let htmlContent = `
+        <h2>You're invited to a meeting!</h2>
+        <p><strong>${actorName}</strong> has invited you to a meeting for <strong>${orgName}</strong>.</p>
+        <p><strong>Meeting:</strong> ${meeting.title}</p>
+        <p><strong>Date:</strong> ${meeting.date}</p>
+        <p><strong>Time:</strong> ${meeting.startTime} - ${meeting.endTime}${meeting.timeZone ? ` (${meeting.timeZone})` : ''}</p>
+      `;
+
+      if (meeting.location) {
+        htmlContent += `<p><strong>Location:</strong> ${meeting.location}</p>`;
       }
 
       htmlContent += `<p>Please log in to SegueMeet to view the agenda and documents.</p>`;
 
-      const { data, error } = await this.resend.emails.send({
-        from: 'SegueMeet Support <onboarding@resend.dev>', // You should replace this with a verified domain
-        to: [to],
-        subject: `Meeting Invite: ${meetingTitle}`,
+      const icalContent = this.buildIcalString(meeting, ICalCalendarMethod.REQUEST, 0);
+
+      const info = await this.transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to,
+        subject: `Meeting Invite: ${meeting.title}`,
+        html: htmlContent,
+        icalEvent: {
+          filename: 'invite.ics',
+          method: 'request',
+          content: icalContent
+        }
+      });
+
+      this.logger.log(`Meeting Invite Email Sent to ${to}! (ID: ${info.messageId})`);
+      return { success: true, messageId: info.messageId };
+    } catch (error: any) {
+      this.logger.error(`Failed to send meeting invite email to ${to}: ${error.message}`);
+      return { success: false, error };
+    }
+  }
+
+  async sendMeetingUpdate(
+    to: string,
+    meeting: any,
+    orgName: string,
+    actorName: string,
+  ) {
+    try {
+      let htmlContent = `
+        <h2>Meeting Update</h2>
+        <p><strong>${actorName}</strong> has updated a meeting for <strong>${orgName}</strong>.</p>
+        <p><strong>Meeting:</strong> ${meeting.title}</p>
+        <p><strong>Date:</strong> ${meeting.date}</p>
+        <p><strong>Time:</strong> ${meeting.startTime} - ${meeting.endTime}${meeting.timeZone ? ` (${meeting.timeZone})` : ''}</p>
+      `;
+
+      if (meeting.location) {
+        htmlContent += `<p><strong>Location:</strong> ${meeting.location}</p>`;
+      }
+
+      const sequence = meeting.updatedAt ? Math.floor(new Date(meeting.updatedAt).getTime() / 1000) : 1;
+      const icalContent = this.buildIcalString(meeting, ICalCalendarMethod.REQUEST, sequence);
+
+      const info = await this.transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to,
+        subject: `Updated Meeting: ${meeting.title}`,
+        html: htmlContent,
+        icalEvent: {
+          filename: 'invite.ics',
+          method: 'request',
+          content: icalContent
+        }
+      });
+
+      this.logger.log(`Meeting Update Email Sent to ${to}! (ID: ${info.messageId})`);
+      return { success: true, messageId: info.messageId };
+    } catch (error: any) {
+      this.logger.error(`Failed to send meeting update email to ${to}: ${error.message}`);
+      return { success: false, error };
+    }
+  }
+
+  async sendMeetingCancelled(
+    to: string,
+    meeting: any,
+    orgName: string,
+    actorName: string,
+  ) {
+    try {
+      let htmlContent = `
+        <h2>Meeting Cancelled</h2>
+        <p><strong>${actorName}</strong> has cancelled the meeting: <strong>${meeting.title}</strong> for <strong>${orgName}</strong>.</p>
+      `;
+
+      const sequence = meeting.updatedAt ? Math.floor(new Date(meeting.updatedAt).getTime() / 1000) : 2;
+      const icalContent = this.buildIcalString(meeting, ICalCalendarMethod.CANCEL, sequence, true);
+
+      const info = await this.transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to,
+        subject: `Cancelled Meeting: ${meeting.title}`,
+        html: htmlContent,
+        icalEvent: {
+          filename: 'invite.ics',
+          method: 'cancel',
+          content: icalContent
+        }
+      });
+
+      this.logger.log(`Meeting Cancel Email Sent to ${to}! (ID: ${info.messageId})`);
+      return { success: true, messageId: info.messageId };
+    } catch (error: any) {
+      this.logger.error(`Failed to send meeting cancel email to ${to}: ${error.message}`);
+      return { success: false, error };
+    }
+  }
+
+  async sendBoardPackPublishedEmail(
+    to: string,
+    meetingTitle: string,
+    orgName: string,
+    actorName: string,
+    meetingId: string
+  ) {
+    try {
+      const loginUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const packUrl = `${loginUrl}/meetings/${meetingId}/pack`;
+
+      const htmlContent = `
+        <h2>Board Pack Published</h2>
+        <p><strong>${actorName}</strong> has published the Board Pack for the <strong>${meetingTitle}</strong> meeting at <strong>${orgName}</strong>.</p>
+        <br/>
+        <p>You can securely view or download the compiled Board Pack PDF by logging into SegueMeet:</p>
+        <p><a href="${packUrl}">${packUrl}</a></p>
+      `;
+
+      const info = await this.transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to,
+        subject: `Board Pack Published: ${meetingTitle}`,
         html: htmlContent,
       });
 
-      if (error) {
-        this.logger.error(`Failed to send email to ${to} via Resend: ${error.message}`);
-        return { success: false, error };
-      }
-      console.log(data);
-      this.logger.log(`Meeting Invite Email Sent to ${to}! via Resend (ID: ${data?.id})`);
-      return { success: true, messageId: data?.id };
+      this.logger.log(`Board Pack email sent to ${to} (ID: ${info.messageId})`);
+      return { success: true, messageId: info.messageId };
     } catch (error: any) {
-      this.logger.error(`Failed to send email to ${to} via Resend: ${error.message}`);
+      this.logger.error(`Failed to send board pack email to ${to}: ${error.message}`);
       return { success: false, error };
     }
   }

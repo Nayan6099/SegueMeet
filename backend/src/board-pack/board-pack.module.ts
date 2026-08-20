@@ -14,8 +14,10 @@ import { OrganisationsModule } from '../organisations/organisations.module';
  *  - DatabaseModule (global) for PrismaService
  *  - OrganisationsModule for requireMembership() tenant isolation
  */
+import { NotificationsModule } from '../notifications/notifications.module';
+
 @Module({
-  imports: [OrganisationsModule],
+  imports: [OrganisationsModule, NotificationsModule],
   controllers: [BoardPackController],
   providers: [BoardPackService],
 })

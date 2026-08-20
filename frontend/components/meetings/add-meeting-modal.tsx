@@ -14,10 +14,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 interface AddMeetingModalProps {
   organisationId: string;
+  committeeId?: string;
   trigger?: React.ReactNode;
 }
 
-export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProps) {
+export function AddMeetingModal({ organisationId, committeeId, trigger }: AddMeetingModalProps) {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [isLocationOpen, setIsLocationOpen] = useState(false);
@@ -35,11 +36,12 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
 
   const [locationId, setLocationId] = useState("");
   const [sendNotice, setSendNotice] = useState(false);
+  const [timeZone, setTimeZone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
 
   // Location Form State
   const [locName, setLocName] = useState("");
   const [locAddress, setLocAddress] = useState("");
-  const [locTimeZone, setLocTimeZone] = useState("Local: Asia/Calcutta (UTC+05:30)");
+  const [locTimeZone, setLocTimeZone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [locIsDefault, setLocIsDefault] = useState(false);
 
   // Video Link & Attendees State
@@ -134,8 +136,11 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
         date,
         startTime: formatTime24(startHour, startMin, startAmPm),
         endTime: formatTime24(endHour, endMin, endAmPm),
+        timeZone,
         location: locString,
         attendeeIds,
+        committeeId,
+        committeeVisible: committeeId ? true : false,
       });
     },
     onSuccess: () => {
@@ -224,6 +229,23 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
                   </div>
                   <p className="text-xs text-slate-400 mt-1">{getDurationString()}</p>
                 </div>
+              </div>
+
+              {/* Timezone */}
+              <div className="space-y-2 pt-2">
+                <Label className="text-xs text-slate-500 font-medium">Meeting Time Zone*</Label>
+                <Select value={timeZone} onValueChange={(val) => setTimeZone(val || "UTC")}>
+                  <SelectTrigger className="w-full border-0 border-b border-slate-300 rounded-none px-0 shadow-none focus:ring-0 text-slate-800 font-medium">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Asia/Kolkata">Asia/Kolkata</SelectItem>
+                    <SelectItem value="Pacific/Auckland">Pacific/Auckland</SelectItem>
+                    <SelectItem value="America/New_York">America/New_York</SelectItem>
+                    <SelectItem value="Europe/London">Europe/London</SelectItem>
+                    <SelectItem value="UTC">UTC</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Location */}
@@ -355,15 +377,16 @@ export function AddMeetingModal({ organisationId, trigger }: AddMeetingModalProp
 
               <div className="space-y-2">
                 <Label className="text-xs text-slate-500 font-medium">Location Time Zone*</Label>
-                <Select value={locTimeZone} onValueChange={(val) => setLocTimeZone(val || "Local: Asia/Calcutta (UTC+05:30)")}>
+                <Select value={locTimeZone} onValueChange={(val) => setLocTimeZone(val || "Asia/Kolkata")}>
                   <SelectTrigger className="w-full border-0 border-b border-slate-300 rounded-none px-0 shadow-none focus:ring-0 text-slate-800 font-medium">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Local: Asia/Calcutta (UTC+05:30)">Local: Asia/Calcutta (UTC+05:30)</SelectItem>
-                    <SelectItem value="Pacific/Auckland (UTC+12:00)">Pacific/Auckland (UTC+12:00)</SelectItem>
-                    <SelectItem value="America/New_York (UTC-05:00)">America/New_York (UTC-05:00)</SelectItem>
-                    <SelectItem value="Europe/London (UTC+00:00)">Europe/London (UTC+00:00)</SelectItem>
+                    <SelectItem value="Asia/Kolkata">Asia/Kolkata</SelectItem>
+                    <SelectItem value="Pacific/Auckland">Pacific/Auckland</SelectItem>
+                    <SelectItem value="America/New_York">America/New_York</SelectItem>
+                    <SelectItem value="Europe/London">Europe/London</SelectItem>
+                    <SelectItem value="UTC">UTC</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

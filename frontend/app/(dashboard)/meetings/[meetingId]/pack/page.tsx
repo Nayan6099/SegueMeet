@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 const purposeLabels: Record<string, string> = {
   none: "—",
@@ -19,7 +21,11 @@ export default function BoardPackPage() {
   const router = useRouter();
   const meetingId = params.meetingId;
 
-  const { data, isLoading, error } = useQuery({
+  const { user } = useAuth();
+  const orgRole = user?.memberships?.[0]?.role;
+  const canManagePack = orgRole === "BOARD_ADMIN" || orgRole === "CHAIR" || orgRole === "SECRETARY";
+
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["board-pack", meetingId],
     queryFn: async () => {
       const res = await api.get(`/meetings/${meetingId}/board-pack`);
@@ -28,6 +34,21 @@ export default function BoardPackPage() {
   });
 
   const [downloading, setDownloading] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+
+  async function publishPack() {
+    setPublishing(true);
+    try {
+      await api.post(`/meetings/${meetingId}/board-pack/publish`);
+      toast.success("Board Pack published successfully!");
+      refetch();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Failed to publish board pack.");
+    } finally {
+      setPublishing(false);
+    }
+  }
 
   async function downloadPdf() {
     setDownloading(true);
@@ -43,8 +64,8 @@ export default function BoardPackPage() {
       link.click();
       link.remove();
     } catch (err) {
-      console.error("Failed to download PDF", err);
-      alert("Failed to download PDF. Please try again.");
+      console.error(err);
+      toast.error("Failed to download PDF. Please try again.");
     } finally {
       setDownloading(false);
     }
@@ -101,13 +122,37 @@ export default function BoardPackPage() {
             Auto-compiled from the published agenda
           </p>
         </div>
-        <button
-          onClick={downloadPdf}
-          disabled={downloading}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-        >
-          {downloading ? "Generating..." : "Download PDF"}
-        </button>
+        <div className="flex items-center gap-3">
+          {data.boardPack && (
+            <Badge variant="secondary" className="font-normal text-xs py-1 px-2 hidden sm:inline-flex">
+              Version {data.boardPack.version} · {new Date(data.boardPack.publishedAt).toLocaleDateString()}
+            </Badge>
+          )}
+
+          {data.boardPack ? (
+            <button
+              onClick={downloadPdf}
+              disabled={downloading}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {downloading ? "Downloading..." : "Download Final PDF"}
+            </button>
+          ) : canManagePack ? (
+            <button
+              onClick={publishPack}
+              disabled={publishing}
+              className="rounded-md bg-[#1e1b4b] px-4 py-2 text-sm font-medium text-white hover:bg-[#2e2b5b] disabled:opacity-50 flex items-center"
+            >
+              {publishing ? (
+                <><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Publishing...</>
+              ) : (
+                "Publish Board Pack"
+              )}
+            </button>
+          ) : (
+            <p className="text-sm text-muted-foreground italic">Pack not published yet</p>
+          )}
+        </div>
       </div>
 
       {/* Cover page */}

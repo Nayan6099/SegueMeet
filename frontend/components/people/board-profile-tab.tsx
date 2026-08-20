@@ -5,25 +5,19 @@ import { Button } from "@/components/ui/button";
 
 interface BoardProfileTabProps {
   onManageTenure: () => void;
+  person: any;
 }
 
-export function BoardProfileTab({ onManageTenure }: BoardProfileTabProps) {
+export function BoardProfileTab({ onManageTenure, person }: BoardProfileTabProps) {
   return (
     <div className="space-y-6">
-      {/* Email Confirmation Banner */}
-      <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex gap-3 text-sm">
-        <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+      <div className="border rounded-xl p-6 bg-white shadow-sm flex flex-col items-center text-center space-y-4">
+        <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center text-xl font-bold">
+          {person.user?.name?.charAt(0) || "U"}
+        </div>
         <div>
-          <p className="font-semibold text-slate-800">Confirm your email</p>
-          <p className="text-slate-600 mt-1">
-            Check inbox to confirm your email address. Didn't receive the email?{" "}
-            <button 
-              onClick={() => window.alert("Email verification service is coming in the next phase!")}
-              className="font-semibold underline hover:text-slate-800"
-            >
-              Resend
-            </button>
-          </p>
+          <h2 className="text-xl font-bold text-slate-800">{person.user?.name || "Unknown User"}</h2>
+          <p className="text-slate-500">{person.user?.email || "No email provided"}</p>
         </div>
       </div>
 

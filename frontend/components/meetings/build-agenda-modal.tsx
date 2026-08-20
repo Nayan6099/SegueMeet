@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { X, Crown, Lightbulb, Sparkles } from "lucide-react";
 
 import { useCreateAgendaSection, useCreateAgendaItem } from "@/hooks/use-agenda";
+import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 interface BuildAgendaModalProps {
@@ -29,11 +30,7 @@ export function BuildAgendaModal({ isOpen, onOpenChange, meetingId }: BuildAgend
     
     setIsBuilding(true);
     try {
-      if (selectedTemplate === "ai") {
-        alert("AI Agenda builder is coming soon!");
-        setIsBuilding(false);
-        return;
-      }
+
 
       if (selectedTemplate === "best-practice" || selectedTemplate === "strategic") {
         // Build 4 standard sections
@@ -60,9 +57,10 @@ export function BuildAgendaModal({ isOpen, onOpenChange, meetingId }: BuildAgend
       onOpenChange(false);
       // Navigate to the agenda tab
       router.push(`/meetings/${meetingId}/agenda`);
+      toast.success("Agenda built successfully");
     } catch (error) {
       console.error("Failed to build agenda", error);
-      alert("Failed to build agenda");
+      toast.error("Failed to build agenda");
     } finally {
       setIsBuilding(false);
     }
@@ -110,18 +108,7 @@ export function BuildAgendaModal({ isOpen, onOpenChange, meetingId }: BuildAgend
               </span>
             </Label>
 
-            <Label 
-              htmlFor="ai"
-              className={`flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-colors ${
-                selectedTemplate === "ai" ? "border-emerald-500 bg-emerald-50" : "border-slate-200 hover:border-slate-300"
-              }`}
-            >
-              <RadioGroupItem value="ai" id="ai" className="sr-only" />
-              <Sparkles className={`w-5 h-5 ${selectedTemplate === "ai" ? "text-emerald-600" : "text-slate-700"}`} />
-              <span className={`text-base font-medium ${selectedTemplate === "ai" ? "text-emerald-900" : "text-slate-800"}`}>
-                Build an AI agenda
-              </span>
-            </Label>
+
 
           </RadioGroup>
         </div>

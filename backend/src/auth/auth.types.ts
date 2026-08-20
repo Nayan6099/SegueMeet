@@ -6,11 +6,12 @@
  */
 
 /** Shape of the JWT payload written at sign-time. */
-export interface JwtPayload {
+export type JwtPayload = {
   /** Subject — the authenticated user's UUID */
   sub: string;
   email: string;
-}
+  jti?: string;
+};
 
 /**
  * The user object placed on req.user by JwtStrategy.validate().

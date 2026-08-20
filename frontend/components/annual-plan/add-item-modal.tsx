@@ -63,7 +63,7 @@ export function AddItemModal({ open, onOpenChange, organisationId, year, planId 
           
           <div className="space-y-2">
             <label className="text-sm font-medium">Month</label>
-            <Select value={month} onValueChange={setMonth}>
+            <Select value={month} onValueChange={(val) => val && setMonth(val)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select month" />
               </SelectTrigger>

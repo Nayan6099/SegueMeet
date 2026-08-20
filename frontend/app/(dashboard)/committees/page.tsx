@@ -36,15 +36,19 @@ export default function CommitteesPage() {
     e.preventDefault();
     if (!orgId || !newCommitteeName.trim()) return;
     
-    await createCommittee.mutateAsync({
-      name: newCommitteeName,
-      description: newCommitteeDesc,
-      organisationId: orgId,
-    });
-    
-    setIsCreateOpen(false);
-    setNewCommitteeName("");
-    setNewCommitteeDesc("");
+    try {
+      await createCommittee.mutateAsync({
+        name: newCommitteeName,
+        description: newCommitteeDesc,
+        organisationId: orgId,
+      });
+      
+      setIsCreateOpen(false);
+      setNewCommitteeName("");
+      setNewCommitteeDesc("");
+    } catch (error) {
+      console.error("Failed to create committee", error);
+    }
   };
 
   return (

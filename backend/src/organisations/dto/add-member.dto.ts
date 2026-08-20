@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsString, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsEnum, IsString, IsOptional } from 'class-validator';
 import { OrganisationRole } from '@prisma/client';
 
 export class AddMemberDto {
@@ -10,17 +10,17 @@ export class AddMemberDto {
   email: string;
 
   /**
-   * The name of the user. Used to create the user on the fly if they don't exist.
+   * The designation or position title (e.g. "Director", "Advisor").
    */
   @IsString()
-  @IsNotEmpty()
-  name: string;
+  @IsOptional()
+  designation?: string;
 
   /**
    * The role to assign. Must be a valid OrganisationRole enum value.
    */
   @IsEnum(OrganisationRole, {
-    message: `Role must be one of: ${Object.values(OrganisationRole).join(', ')}`,
+    message: 'Role must be a valid OrganisationRole',
   })
   role: OrganisationRole;
 }

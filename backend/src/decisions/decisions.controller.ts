@@ -30,6 +30,7 @@ export class DecisionsController {
   @Get()
   getDecisions(
     @Query('organisationId') organisationId: string,
+    @Query('committeeId') committeeId: string,
     @Query('skip') skip: string,
     @Query('take') take: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -37,7 +38,7 @@ export class DecisionsController {
     if (!organisationId) {
       throw new BadRequestException('organisationId query parameter is required');
     }
-    return this.decisionsService.getDecisions(organisationId, skip, take, user);
+    return this.decisionsService.getDecisions(organisationId, committeeId, skip, take, user);
   }
 
   /** Get a single decision by ID */
