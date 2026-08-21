@@ -158,7 +158,7 @@ export class AuthService {
     const email = dto.email.toLowerCase().trim();
 
     // Fetch user including passwordHash for comparison
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const user: any = await this.prisma.user.findUnique({ where: { email } });
 
     // 1. Check temporary account lockout
     if (user && user.lockedUntil && user.lockedUntil > new Date()) {
@@ -190,7 +190,7 @@ export class AuthService {
       const willLock = nextAttempts >= 5;
       const lockedUntil = willLock ? new Date(Date.now() + 15 * 60 * 1000) : null;
 
-      await this.prisma.user.update({
+      await (this.prisma.user as any).update({
         where: { id: user.id },
         data: {
           failedLoginAttempts: nextAttempts,
@@ -226,8 +226,8 @@ export class AuthService {
     }
 
     // Reset failed login attempts on success
-    if (user.failedLoginAttempts > 0 || user.lockedUntil !== null) {
-      await this.prisma.user.update({
+    if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+      await (this.prisma.user as any).update({
         where: { id: user.id },
         data: { failedLoginAttempts: 0, lockedUntil: null },
       });
