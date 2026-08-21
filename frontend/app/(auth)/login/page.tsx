@@ -88,7 +88,7 @@ export default function LoginPage() {
           </span>
         </div>
         <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Sign in to your account</h2>
-        <p className="text-sm text-slate-500 mt-1">Access your boards, committees, and documents securely.</p>
+        <p className="text-sm text-slate-500 mt-1">Secure Access</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">

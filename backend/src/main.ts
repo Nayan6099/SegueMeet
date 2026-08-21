@@ -50,10 +50,10 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-  await app.listen(port);
+  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
+  await app.listen(port, '0.0.0.0');
   Logger.log(
-    `SegueMeet API listening on http://localhost:${port}`,
+    `SegueMeet API listening on http://0.0.0.0:${port}`,
     'Bootstrap',
   );
 }
