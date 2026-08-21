@@ -38,6 +38,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "cloudinary": "^2.10.0",
+    "date-fns": "^2.30.0",
     "helmet": "^8.3.0",
     "ical-generator": "^10.2.0",
     "multer": "^2.2.0",
