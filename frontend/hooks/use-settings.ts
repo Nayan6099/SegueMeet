@@ -96,45 +96,53 @@ export function useGetLocations(organisationId: string | undefined, activeOnly?:
 }
 
 // Create meeting location
-export function useCreateLocation(organisationId: string | undefined) {
+export function useCreateLocation(organisationId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: any) => {
-      const res = await api.post(`/organisations/${organisationId}/locations`, data);
+      const activeOrgId = data.organisationId || organisationId;
+      if (!activeOrgId) throw new Error("Organisation context is required");
+      const res = await api.post(`/organisations/${activeOrgId}/locations`, data);
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["locations", organisationId] });
+      queryClient.invalidateQueries({ queryKey: ["locations"] });
     },
   });
 }
 
 // Update meeting location
-export function useUpdateLocation(organisationId: string | undefined) {
+export function useUpdateLocation(organisationId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ locationId, data }: { locationId: string; data: any }) => {
-      const res = await api.patch(`/organisations/${organisationId}/locations/${locationId}`, data);
+    mutationFn: async ({ locationId, data, organisationId: overrideOrgId }: { locationId: string; data: any; organisationId?: string }) => {
+      const activeOrgId = overrideOrgId || organisationId;
+      if (!activeOrgId) throw new Error("Organisation context is required");
+      const res = await api.patch(`/organisations/${activeOrgId}/locations/${locationId}`, data);
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["locations", organisationId] });
+      queryClient.invalidateQueries({ queryKey: ["locations"] });
     },
   });
 }
 
 // Delete meeting location
-export function useDeleteLocation(organisationId: string | undefined) {
+export function useDeleteLocation(organisationId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (locationId: string) => {
-      const res = await api.delete(`/organisations/${organisationId}/locations/${locationId}`);
+    mutationFn: async (params: { locationId: string; organisationId?: string } | string) => {
+      const locId = typeof params === "string" ? params : params.locationId;
+      const activeOrgId = (typeof params === "object" ? params.organisationId : undefined) || organisationId;
+      if (!activeOrgId) throw new Error("Organisation context is required");
+      const res = await api.delete(`/organisations/${activeOrgId}/locations/${locId}`);
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["locations", organisationId] });
+      queryClient.invalidateQueries({ queryKey: ["locations"] });
     },
   });
 }
+
 
 

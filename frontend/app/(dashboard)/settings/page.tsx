@@ -147,16 +147,21 @@ export default function SettingsPage() {
 
   const handleSaveLocation = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!orgId) {
+      toast.error("Organisation context not found. Please reload the page.");
+      return;
+    }
     if (!locName.trim()) {
       toast.error("Location name is required");
       return;
     }
 
     const payload = {
+      organisationId: orgId,
       name: locName.trim(),
       type: locType,
-      address: locType !== "VIRTUAL" ? locAddress.trim() : undefined,
-      meetingUrl: locType !== "IN_PERSON" ? locMeetingUrl.trim() : undefined,
+      address: locType !== "VIRTUAL" ? (locAddress.trim() || undefined) : undefined,
+      meetingUrl: locType !== "IN_PERSON" ? (locMeetingUrl.trim() || undefined) : undefined,
       description: locDescription.trim() || undefined,
       isDefault: locIsDefault,
       isActive: locIsActive,
@@ -165,6 +170,7 @@ export default function SettingsPage() {
     if (editingLocation) {
       updateLocationMutation.mutate({
         locationId: editingLocation.id,
+        organisationId: orgId,
         data: payload,
       }, {
         onSuccess: () => {
@@ -189,8 +195,10 @@ export default function SettingsPage() {
   };
 
   const handleToggleLocationActive = (loc: any) => {
+    if (!orgId) return;
     updateLocationMutation.mutate({
       locationId: loc.id,
+      organisationId: orgId,
       data: { isActive: !loc.isActive },
     }, {
       onSuccess: () => {
@@ -203,8 +211,9 @@ export default function SettingsPage() {
   };
 
   const handleDeleteLocation = (locId: string) => {
+    if (!orgId) return;
     if (!confirm("Are you sure you want to delete this location?")) return;
-    deleteLocationMutation.mutate(locId, {
+    deleteLocationMutation.mutate({ locationId: locId, organisationId: orgId }, {
       onSuccess: () => {
         toast.success("Location deleted successfully");
       },
