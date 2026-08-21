@@ -37,8 +37,8 @@ export default function LoginPage() {
     const emailCheck = validateEmailStrict(email);
     if (!emailCheck.isValid) {
       setError(
-        emailCheck.suggestion 
-          ? `${emailCheck.error} ${emailCheck.suggestion}` 
+        emailCheck.suggestion
+          ? `${emailCheck.error} ${emailCheck.suggestion}`
           : (emailCheck.error || "Please enter a valid, complete email address.")
       );
       return;
@@ -57,9 +57,9 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const res = await api.post("/auth/login", { 
-        email: email.trim().toLowerCase(), 
-        password 
+      const res = await api.post("/auth/login", {
+        email: email.trim().toLowerCase(),
+        password
       });
       login(res.data.accessToken, res.data.user);
       router.push("/my-home");
@@ -84,7 +84,7 @@ export default function LoginPage() {
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1.5">
           <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-            <Lock className="w-3 h-3" /> Secure Login
+            <Lock className="w-3 h-3" /> Login Here
           </span>
         </div>
         <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Sign in to your account</h2>
@@ -101,10 +101,10 @@ export default function LoginPage() {
 
         <div className="space-y-1.5">
           <Label htmlFor="email" className="text-xs font-semibold text-slate-700">Email Address</Label>
-          <Input 
-            id="email" 
-            type="email" 
-            placeholder="name@company.com" 
+          <Input
+            id="email"
+            type="email"
+            placeholder="name@company.com"
             value={email}
             maxLength={VALIDATION_LIMITS.EMAIL.MAX}
             onChange={(e) => setEmail(e.target.value)}
@@ -123,7 +123,7 @@ export default function LoginPage() {
             </div>
           )}
         </div>
-        
+
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="password" className="text-xs font-semibold text-slate-700">Password</Label>
@@ -132,9 +132,9 @@ export default function LoginPage() {
             </Link>
           </div>
           <div className="relative">
-            <Input 
-              id="password" 
-              type={showPassword ? "text" : "password"} 
+            <Input
+              id="password"
+              type={showPassword ? "text" : "password"}
               placeholder="Enter your password"
               value={password}
               maxLength={VALIDATION_LIMITS.PASSWORD.MAX}
@@ -152,9 +152,9 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <Button 
-          type="submit" 
-          className="w-full h-11 bg-[#31327c] hover:bg-[#262762] text-white font-semibold shadow-sm mt-2" 
+        <Button
+          type="submit"
+          className="w-full h-11 bg-[#31327c] hover:bg-[#262762] text-white font-semibold shadow-sm mt-2"
           disabled={isLoading}
         >
           {isLoading ? (
@@ -170,7 +170,7 @@ export default function LoginPage() {
 
       <div className="mt-6 pt-5 border-t border-slate-200 flex items-center justify-center gap-2 text-[11px] text-slate-500 font-medium">
         <ShieldCheck className="w-4 h-4 text-emerald-600" />
-        <span>End-to-End Cryptographic Security</span>
+        <span>End-to-End Secure</span>
       </div>
 
       <div className="mt-4 text-center text-xs text-slate-500">

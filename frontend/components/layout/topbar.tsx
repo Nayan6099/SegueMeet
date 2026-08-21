@@ -15,6 +15,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth-context";
 import { useGetNotifications, useMarkNotificationAsRead, useMarkAllNotificationsAsRead } from "@/hooks/use-notifications";
+import { FeedbackDialog } from "../feedback/feedback-dialog";
+import { SupportDialog } from "../support/support-dialog";
+import { useState } from "react";
 
 export function Topbar() {
   const { user, logout } = useAuth();
@@ -24,37 +27,49 @@ export function Topbar() {
   const markAsRead = useMarkNotificationAsRead();
   const markAllAsRead = useMarkAllNotificationsAsRead(orgId);
 
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
+
   const unreadCount = notifications.filter((n: any) => !n.isRead).length;
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-border bg-white px-4 md:px-8 shrink-0 w-full sticky top-0 z-30">
-      <div className="flex-1 flex items-center gap-4">
-        {/* Mobile Hamburger Menu */}
-        <Sheet>
-          <SheetTrigger render={<button aria-label="Open menu" className="md:hidden p-2 -ml-2 text-slate-500 hover:text-slate-900 transition-colors" />}>
-            <Menu className="w-6 h-6" />
-          </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-64 flex flex-col bg-[#f4f7f9]">
-            <SidebarInner isCollapsed={false} />
-          </SheetContent>
-        </Sheet>
-        {/* Can put breadcrumbs or global search here if needed */}
-      </div>
+    <>
+      <header className="flex h-16 items-center justify-between border-b border-border bg-white px-4 md:px-8 shrink-0 w-full sticky top-0 z-30">
+        <div className="flex-1 flex items-center gap-4">
+          {/* Mobile Hamburger Menu */}
+          <Sheet>
+            <SheetTrigger render={<button aria-label="Open menu" className="md:hidden p-2 -ml-2 text-slate-500 hover:text-slate-900 transition-colors" />}>
+              <Menu className="w-6 h-6" />
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-64 flex flex-col bg-[#f4f7f9]">
+              <SidebarInner isCollapsed={false} />
+            </SheetContent>
+          </Sheet>
+          {/* Can put breadcrumbs or global search here if needed */}
+        </div>
 
-      <div className="flex items-center gap-3 md:gap-6 text-sm font-medium text-slate-600 shrink-0">
-        <button 
-          aria-label="Search"
-          onClick={() => router.push('/search')}
-          className="hidden md:flex hover:text-slate-900 transition-colors items-center gap-2"
-        >
-          <Search className="w-4 h-4" />
-        </button>
-        <Link href="#" className="hidden md:inline-flex hover:text-slate-900 transition-colors">
-          Feedback
-        </Link>
-        <Link href="#" className="hidden md:inline-flex hover:text-slate-900 transition-colors">
-          Support
-        </Link>
+        <div className="flex items-center gap-3 md:gap-6 text-sm font-medium text-slate-600 shrink-0">
+          <button 
+            aria-label="Search"
+            onClick={() => router.push('/search')}
+            className="hidden md:flex hover:text-slate-900 transition-colors items-center gap-2"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsFeedbackOpen(true)}
+            className="hidden md:inline-flex hover:text-slate-900 transition-colors cursor-pointer"
+          >
+            Feedback
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsSupportOpen(true)}
+            className="hidden md:inline-flex hover:text-slate-900 transition-colors cursor-pointer"
+          >
+            Support
+          </button>
         
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger 
@@ -129,11 +144,17 @@ export function Topbar() {
             </DropdownMenuItem>
             
             <div className="py-1">
-              <DropdownMenuItem className="cursor-pointer py-2 px-3 text-sm text-slate-700">Help</DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer py-2 px-3 text-sm text-slate-700">Community</DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer py-2 px-3 text-sm text-slate-700 md:hidden" onClick={() => setIsFeedbackOpen(true)}>
+                Product Feedback
+              </DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer py-2 px-3 text-sm text-slate-700 md:hidden" onClick={() => setIsSupportOpen(true)}>
+                Get Support
+              </DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer py-2 px-3 text-sm text-slate-700" onClick={() => setIsSupportOpen(true)}>
+                Help & Support
+              </DropdownMenuItem>
               <DropdownMenuItem className="cursor-pointer py-2 px-3 text-sm text-slate-700">Terms</DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer py-2 px-3 text-sm text-slate-700">Privacy</DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer py-2 px-3 text-sm text-slate-700 border-b">Contact</DropdownMenuItem>
+              <DropdownMenuItem className="cursor-pointer py-2 px-3 text-sm text-slate-700 border-b">Privacy</DropdownMenuItem>
             </div>
 
             <DropdownMenuItem className="cursor-pointer py-2 px-3 mt-1 text-sm text-red-600 focus:text-red-600 focus:bg-red-50" onClick={logout}>
@@ -143,5 +164,10 @@ export function Topbar() {
         </DropdownMenu>
       </div>
     </header>
+
+    {/* Feedback & Support Dialogs */}
+    <FeedbackDialog open={isFeedbackOpen} onOpenChange={setIsFeedbackOpen} />
+    <SupportDialog open={isSupportOpen} onOpenChange={setIsSupportOpen} />
+  </>
   );
 }
