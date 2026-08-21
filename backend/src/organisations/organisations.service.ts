@@ -591,7 +591,7 @@ export class OrganisationsService {
       });
     }
     
-    return this.prisma.meetingLocation.create({
+    return (this.prisma as any).meetingLocation.create({
       data: {
         organisationId,
         name: dto.name.trim(),
@@ -614,7 +614,7 @@ export class OrganisationsService {
   ) {
     await this.requireRole(organisationId, requestingUser.id, CAN_EDIT_BOARD_PROFILE);
 
-    const location = await this.prisma.meetingLocation.findFirst({
+    const location = await (this.prisma as any).meetingLocation.findFirst({
       where: { id: locationId, organisationId },
     });
 
@@ -623,7 +623,7 @@ export class OrganisationsService {
     }
 
     if (dto.name && dto.name.trim() !== location.name) {
-      const duplicate = await this.prisma.meetingLocation.findFirst({
+      const duplicate = await (this.prisma as any).meetingLocation.findFirst({
         where: {
           organisationId,
           name: { equals: dto.name.trim(), mode: 'insensitive' },
@@ -637,17 +637,17 @@ export class OrganisationsService {
     }
 
     if (dto.isDefault) {
-      await this.prisma.meetingLocation.updateMany({
+      await (this.prisma as any).meetingLocation.updateMany({
         where: { organisationId, isDefault: true, id: { not: locationId } },
         data: { isDefault: false },
       });
     }
 
-    return this.prisma.meetingLocation.update({
+    return (this.prisma as any).meetingLocation.update({
       where: { id: locationId },
       data: {
         ...(dto.name && { name: dto.name.trim() }),
-        ...(dto.type !== undefined && { type: dto.type }),
+        ...(dto.type !== undefined && { type: dto.type as any }),
         ...(dto.address !== undefined && { address: dto.address ? dto.address.trim() : null }),
         ...(dto.meetingUrl !== undefined && { meetingUrl: dto.meetingUrl ? dto.meetingUrl.trim() : null }),
         ...(dto.description !== undefined && { description: dto.description ? dto.description.trim() : null }),
@@ -665,7 +665,7 @@ export class OrganisationsService {
   ) {
     await this.requireRole(organisationId, requestingUser.id, CAN_EDIT_BOARD_PROFILE);
 
-    const location = await this.prisma.meetingLocation.findFirst({
+    const location = await (this.prisma as any).meetingLocation.findFirst({
       where: { id: locationId, organisationId },
     });
 
@@ -674,7 +674,7 @@ export class OrganisationsService {
     }
 
     // Check if any meetings are associated with this location
-    const meetingCount = await this.prisma.meeting.count({
+    const meetingCount = await (this.prisma as any).meeting.count({
       where: {
         organisationId,
         locationId,
@@ -687,7 +687,7 @@ export class OrganisationsService {
       );
     }
 
-    return this.prisma.meetingLocation.delete({
+    return (this.prisma as any).meetingLocation.delete({
       where: { id: locationId },
     });
   }
