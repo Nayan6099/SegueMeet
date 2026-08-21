@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { io } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
+import { getApiBaseUrl } from '@/lib/api';
 
 export function useVotingSocket(entityType: 'decision' | 'resolution', entityId: string) {
   const queryClient = useQueryClient();
@@ -8,11 +9,16 @@ export function useVotingSocket(entityType: 'decision' | 'resolution', entityId:
   useEffect(() => {
     if (!entityId) return;
 
-    // Use environment variable or default to backend URL
-    const socketUrl = process.env.NEXT_PUBLIC_API_URL 
-      ? process.env.NEXT_PUBLIC_API_URL.replace('/api', '')
-      : 'http://localhost:3001';
+    // Use environment variable / configured base URL
+    const baseUrl = getApiBaseUrl();
+    if (!baseUrl) {
+      if (process.env.NODE_ENV === 'production') {
+        console.warn('useVotingSocket: WebSocket skipped because NEXT_PUBLIC_API_URL is not configured.');
+      }
+      return;
+    }
 
+    const socketUrl = baseUrl.replace('/api', '');
     const socket = io(socketUrl);
 
     const roomName = `${entityType}_${entityId}`;
