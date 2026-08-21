@@ -14,14 +14,71 @@ async function bootstrap() {
   );
 
   /**
-   * CORS — permissive in development.
-   * Restrict origins in production by setting the CORS_ORIGIN environment variable.
+   * CORS Configuration
+   * - Supports FRONTEND_URL and CORS_ORIGIN environment variables (comma-separated if multiple).
+   * - Dynamically matches Vercel production and preview deployment origins (*.vercel.app).
+   * - Supports local development origins (localhost / 127.0.0.1).
+   * - Echoes the specific origin (not '*') to allow credentials/authorization headers securely.
    */
+  const allowedOriginsEnv = [
+    process.env.FRONTEND_URL,
+    process.env.CORS_ORIGIN,
+  ]
+    .filter(Boolean)
+    .flatMap((val) => (val ? val.split(',') : []))
+    .map((origin) => origin.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
+
+  const isOriginAllowed = (origin: string | undefined): boolean => {
+    // Allow non-browser requests with no origin header (e.g. health checks, server-to-server, mobile)
+    if (!origin) return true;
+
+    const cleanOrigin = origin.trim().replace(/\/+$/, '');
+
+    // 1. Check against explicitly configured environment origins
+    if (allowedOriginsEnv.includes(cleanOrigin)) {
+      return true;
+    }
+
+    // 2. Allow Vercel production & preview deployment URLs
+    if (/^https:\/\/.*\.vercel\.app$/.test(cleanOrigin)) {
+      return true;
+    }
+
+    // 3. Allow localhost / 127.0.0.1 in non-production environments
+    if (process.env.NODE_ENV !== 'production') {
+      if (
+        /^https?:\/\/localhost(:\d+)?$/.test(cleanOrigin) ||
+        /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(cleanOrigin)
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
   app.enableCors({
-    origin: process.env.CORS_ORIGIN ?? true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        Logger.warn(`Blocked by CORS: ${origin}`, 'CORS');
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'Accept',
+      'X-Requested-With',
+      'Origin',
+    ],
+    exposedHeaders: ['Authorization', 'Content-Disposition'],
     credentials: true,
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   });
 
   /**
