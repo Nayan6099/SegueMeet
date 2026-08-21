@@ -24,6 +24,11 @@ import {
   Lock,
   AlertCircle,
   CheckCircle2,
+  Bell,
+  Mail,
+  Calendar,
+  FileText,
+  CheckSquare,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { 
@@ -34,6 +39,10 @@ import {
   useRevokeSession,
   useRevokeAllOtherSessions,
 } from "@/hooks/use-settings";
+import {
+  useGetNotificationPreferences,
+  useUpdateNotificationPreferences,
+} from "@/hooks/use-notifications";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -56,12 +65,27 @@ export default function SettingsPage() {
   const [failedLoginThreshold, setFailedLoginThreshold] = useState("5");
   const [lockoutDuration, setLockoutDuration] = useState("15");
 
+  // Notification Preferences State
+  const [inAppEnabled, setInAppEnabled] = useState(true);
+  const [emailEnabled, setEmailEnabled] = useState(true);
+  const [meetingCreated, setMeetingCreated] = useState(true);
+  const [meetingUpdated, setMeetingUpdated] = useState(true);
+  const [meetingCancelled, setMeetingCancelled] = useState(true);
+  const [agendaPublished, setAgendaPublished] = useState(true);
+  const [minutesConfirmed, setMinutesConfirmed] = useState(true);
+  const [actionItemAssigned, setActionItemAssigned] = useState(true);
+  const [documentUploaded, setDocumentUploaded] = useState(true);
+  const [tenureExpiring, setTenureExpiring] = useState(true);
+
   const { data: orgData, isLoading } = useGetOrganisationSettings(orgId);
   const updateMutation = useUpdateOrganisationSettings(orgId);
   const { data: auditLogs = [], isLoading: isLoadingAudit } = useGetAuditLogs(orgId);
   const { data: sessions = [], isLoading: isLoadingSessions } = useGetSessions();
   const revokeSessionMutation = useRevokeSession();
   const revokeOthersMutation = useRevokeAllOtherSessions();
+
+  const { data: notifPrefs, isLoading: isLoadingNotifPrefs } = useGetNotificationPreferences();
+  const updateNotifPrefsMutation = useUpdateNotificationPreferences();
 
   useEffect(() => {
     if (orgData) {
@@ -83,8 +107,37 @@ export default function SettingsPage() {
     }
   }, [orgData]);
 
+  useEffect(() => {
+    if (notifPrefs) {
+      if (notifPrefs.inAppEnabled !== undefined) setInAppEnabled(Boolean(notifPrefs.inAppEnabled));
+      if (notifPrefs.emailEnabled !== undefined) setEmailEnabled(Boolean(notifPrefs.emailEnabled));
+      if (notifPrefs.meetingCreated !== undefined) setMeetingCreated(Boolean(notifPrefs.meetingCreated));
+      if (notifPrefs.meetingUpdated !== undefined) setMeetingUpdated(Boolean(notifPrefs.meetingUpdated));
+      if (notifPrefs.meetingCancelled !== undefined) setMeetingCancelled(Boolean(notifPrefs.meetingCancelled));
+      if (notifPrefs.agendaPublished !== undefined) setAgendaPublished(Boolean(notifPrefs.agendaPublished));
+      if (notifPrefs.minutesConfirmed !== undefined) setMinutesConfirmed(Boolean(notifPrefs.minutesConfirmed));
+      if (notifPrefs.actionItemAssigned !== undefined) setActionItemAssigned(Boolean(notifPrefs.actionItemAssigned));
+      if (notifPrefs.documentUploaded !== undefined) setDocumentUploaded(Boolean(notifPrefs.documentUploaded));
+      if (notifPrefs.tenureExpiring !== undefined) setTenureExpiring(Boolean(notifPrefs.tenureExpiring));
+    }
+  }, [notifPrefs]);
+
   const handleSave = () => {
     if (!name.trim()) return;
+
+    updateNotifPrefsMutation.mutate({
+      inAppEnabled,
+      emailEnabled,
+      meetingCreated,
+      meetingUpdated,
+      meetingCancelled,
+      agendaPublished,
+      minutesConfirmed,
+      actionItemAssigned,
+      documentUploaded,
+      tenureExpiring,
+    });
+
     updateMutation.mutate({
       name,
       settings: {
@@ -565,6 +618,170 @@ export default function SettingsPage() {
                     Failed attempts reset to zero automatically upon successful authentication. Account unlock occurs automatically once the timeout expires.
                   </span>
                 </div>
+              </div>
+            </div>
+
+          </div>
+        </TabsContent>
+        
+        {/* Notifications Preferences */}
+        <TabsContent value="notifications" className="mt-0">
+          <div className="divide-y divide-slate-100 bg-white border border-slate-100 rounded-lg p-4 md:p-8 shadow-sm">
+            
+            {/* Delivery Channels */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-12 py-6 first:pt-0">
+              <div className="col-span-1">
+                <h3 className="text-sm font-medium text-slate-800 flex items-center gap-1.5">
+                  <Bell className="w-4 h-4 text-blue-600" />
+                  Delivery Channels
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Choose how SegueMeet delivers notifications to you.
+                </p>
+              </div>
+              <div className="col-span-2 space-y-3 max-w-2xl">
+                <label className="flex items-center justify-between p-3.5 border rounded-lg bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition-colors">
+                  <div>
+                    <div className="text-xs font-semibold text-slate-800">In-App Notifications</div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">Show notifications in the topbar notification bell inbox</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={inAppEnabled}
+                    onChange={(e) => setInAppEnabled(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-3.5 border rounded-lg bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition-colors">
+                  <div>
+                    <div className="text-xs font-semibold text-slate-800">Email Notifications</div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">Receive supported event notifications at your registered email address</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={emailEnabled}
+                    onChange={(e) => setEmailEnabled(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Meeting Notifications */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-12 py-6">
+              <div className="col-span-1">
+                <h3 className="text-sm font-medium text-slate-800 flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-blue-600" />
+                  Meeting Notifications
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Notifications for invitations, schedule modifications, and cancellations.
+                </p>
+              </div>
+              <div className="col-span-2 space-y-3 max-w-2xl">
+                <label className="flex items-center justify-between p-3 border rounded-lg bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition-colors">
+                  <span className="text-xs font-medium text-slate-700">Meeting Invitations (when you are invited)</span>
+                  <input
+                    type="checkbox"
+                    checked={meetingCreated}
+                    onChange={(e) => setMeetingCreated(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+                <label className="flex items-center justify-between p-3 border rounded-lg bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition-colors">
+                  <span className="text-xs font-medium text-slate-700">Meeting Changes & Reschedules</span>
+                  <input
+                    type="checkbox"
+                    checked={meetingUpdated}
+                    onChange={(e) => setMeetingUpdated(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+                <label className="flex items-center justify-between p-3 border rounded-lg bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition-colors">
+                  <span className="text-xs font-medium text-slate-700">Meeting Cancellations</span>
+                  <input
+                    type="checkbox"
+                    checked={meetingCancelled}
+                    onChange={(e) => setMeetingCancelled(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Agenda & Documents */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-12 py-6">
+              <div className="col-span-1">
+                <h3 className="text-sm font-medium text-slate-800 flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                  Agenda & Board Pack
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Updates regarding meeting agenda publishing and uploaded materials.
+                </p>
+              </div>
+              <div className="col-span-2 space-y-3 max-w-2xl">
+                <label className="flex items-center justify-between p-3 border rounded-lg bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition-colors">
+                  <span className="text-xs font-medium text-slate-700">Agenda Published & Available</span>
+                  <input
+                    type="checkbox"
+                    checked={agendaPublished}
+                    onChange={(e) => setAgendaPublished(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+                <label className="flex items-center justify-between p-3 border rounded-lg bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition-colors">
+                  <span className="text-xs font-medium text-slate-700">Board Pack / Document Uploaded</span>
+                  <input
+                    type="checkbox"
+                    checked={documentUploaded}
+                    onChange={(e) => setDocumentUploaded(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Action Items & Governance */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-12 py-6">
+              <div className="col-span-1">
+                <h3 className="text-sm font-medium text-slate-800 flex items-center gap-1.5">
+                  <CheckSquare className="w-4 h-4 text-blue-600" />
+                  Action Items & Governance
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Tasks, confirmed minutes, and governance reminders.
+                </p>
+              </div>
+              <div className="col-span-2 space-y-3 max-w-2xl">
+                <label className="flex items-center justify-between p-3 border rounded-lg bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition-colors">
+                  <span className="text-xs font-medium text-slate-700">Action Item Assigned to You</span>
+                  <input
+                    type="checkbox"
+                    checked={actionItemAssigned}
+                    onChange={(e) => setActionItemAssigned(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+                <label className="flex items-center justify-between p-3 border rounded-lg bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition-colors">
+                  <span className="text-xs font-medium text-slate-700">Meeting Minutes Confirmed</span>
+                  <input
+                    type="checkbox"
+                    checked={minutesConfirmed}
+                    onChange={(e) => setMinutesConfirmed(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
+                <label className="flex items-center justify-between p-3 border rounded-lg bg-slate-50/50 cursor-pointer hover:bg-slate-50 transition-colors">
+                  <span className="text-xs font-medium text-slate-700">Board Tenure Expiration Reminders</span>
+                  <input
+                    type="checkbox"
+                    checked={tenureExpiring}
+                    onChange={(e) => setTenureExpiring(e.target.checked)}
+                    className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                  />
+                </label>
               </div>
             </div>
 
