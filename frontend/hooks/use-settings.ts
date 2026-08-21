@@ -109,7 +109,8 @@ export function useCreateLocation(organisationId?: string) {
     mutationFn: async (data: any) => {
       const activeOrgId = data.organisationId || organisationId;
       if (!activeOrgId) throw new Error("Organisation context is required");
-      const res = await api.post(`/organisations/${activeOrgId}/locations`, data);
+      const { organisationId: _omitted, ...payload } = data;
+      const res = await api.post(`/organisations/${activeOrgId}/locations`, payload);
       return res.data;
     },
     onSuccess: () => {
@@ -123,9 +124,10 @@ export function useUpdateLocation(organisationId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ locationId, data, organisationId: overrideOrgId }: { locationId: string; data: any; organisationId?: string }) => {
-      const activeOrgId = overrideOrgId || organisationId;
+      const activeOrgId = overrideOrgId || data?.organisationId || organisationId;
       if (!activeOrgId) throw new Error("Organisation context is required");
-      const res = await api.patch(`/organisations/${activeOrgId}/locations/${locationId}`, data);
+      const { organisationId: _omitted, ...payload } = data || {};
+      const res = await api.patch(`/organisations/${activeOrgId}/locations/${locationId}`, payload);
       return res.data;
     },
     onSuccess: () => {

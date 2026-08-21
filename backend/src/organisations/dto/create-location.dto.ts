@@ -14,6 +14,10 @@ export enum MeetingLocationType {
 }
 
 export class CreateLocationDto {
+  @IsOptional()
+  @IsString()
+  organisationId?: string;
+
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)

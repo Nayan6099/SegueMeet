@@ -176,6 +176,7 @@ export default function SettingsPage() {
         onSuccess: () => {
           toast.success("Location updated successfully");
           setIsLocationModalOpen(false);
+          setEditingLocation(null);
         },
         onError: (err: any) => {
           toast.error(err?.response?.data?.message || "Failed to update location");
@@ -186,6 +187,12 @@ export default function SettingsPage() {
         onSuccess: () => {
           toast.success("Location created successfully");
           setIsLocationModalOpen(false);
+          setLocName("");
+          setLocAddress("");
+          setLocMeetingUrl("");
+          setLocDescription("");
+          setLocIsDefault(false);
+          setLocIsActive(true);
         },
         onError: (err: any) => {
           toast.error(err?.response?.data?.message || "Failed to create location");
