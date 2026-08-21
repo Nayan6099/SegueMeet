@@ -120,6 +120,7 @@ export default function SettingsPage() {
   const [locDescription, setLocDescription] = useState("");
   const [locIsDefault, setLocIsDefault] = useState(false);
   const [locIsActive, setLocIsActive] = useState(true);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const handleOpenNewLocation = () => {
     setEditingLocation(null);
@@ -309,7 +310,11 @@ export default function SettingsPage() {
         },
       }
     }, {
-      onSuccess: () => toast.success("Settings updated successfully"),
+      onSuccess: () => {
+        setSaveSuccess(true);
+        toast.success("Settings updated successfully");
+        setTimeout(() => setSaveSuccess(false), 3000);
+      },
       onError: (err: any) => toast.error(err?.response?.data?.message || "Failed to update settings"),
     });
   };
@@ -370,14 +375,38 @@ export default function SettingsPage() {
           </TabsList>
         </div>
 
-        <div className="flex justify-end mb-6">
+        <div className="flex items-center justify-end gap-3 mb-6">
+          {saveSuccess && (
+            <span className="flex items-center text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-md">
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-600" />
+              Settings saved successfully!
+            </span>
+          )}
           <Button 
             onClick={handleSave} 
             disabled={updateMutation.isPending || isLoading || !name.trim()}
-            className="bg-[#6b21a8] hover:bg-[#581c87] text-white font-medium px-6 h-9 rounded-md"
+            className={`${
+              saveSuccess 
+                ? "bg-emerald-600 hover:bg-emerald-700 text-white" 
+                : "bg-[#6b21a8] hover:bg-[#581c87] text-white"
+            } font-medium px-6 h-9 rounded-md transition-all shadow-sm`}
           >
-            {updateMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Save Changes
+            {updateMutation.isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Saving Changes...
+              </>
+            ) : saveSuccess ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                Saved!
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                Save Changes
+              </>
+            )}
           </Button>
         </div>
 
