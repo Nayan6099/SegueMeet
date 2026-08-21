@@ -15,15 +15,22 @@ export function useGetOrganisationSettings(organisationId: string | undefined) {
 }
 
 // Update organisation settings
-export function useUpdateOrganisationSettings(organisationId: string | undefined) {
+export function useUpdateOrganisationSettings(organisationId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { name: string; settings?: any }) => {
-      const res = await api.patch(`/organisations/${organisationId}`, data);
+    mutationFn: async (data: { name: string; settings?: any; organisationId?: string }) => {
+      const activeOrgId = data.organisationId || organisationId;
+      if (!activeOrgId) throw new Error("Organisation context is required");
+      const res = await api.patch(`/organisations/${activeOrgId}`, {
+        name: data.name,
+        settings: data.settings,
+      });
       return res.data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["organisation", organisationId] });
+    onSuccess: (_, variables) => {
+      const activeOrgId = variables?.organisationId || organisationId;
+      queryClient.invalidateQueries({ queryKey: ["organisation", activeOrgId] });
+      queryClient.invalidateQueries({ queryKey: ["organisation"] });
     },
   });
 }

@@ -28,8 +28,8 @@ interface FeedbackDialogProps {
 }
 
 export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
-  const { user } = useAuth();
-  const orgId = user?.memberships?.[0]?.organisationId;
+  const { user, activeOrgId } = useAuth();
+  const orgId = activeOrgId || user?.memberships?.[0]?.organisationId;
   const submitFeedback = useSubmitFeedback();
 
   const [type, setType] = useState<"SUGGESTION" | "FEATURE_REQUEST" | "BUG" | "GENERAL">("SUGGESTION");
@@ -39,7 +39,7 @@ export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!orgId) {
-      toast.error("Organisation not found");
+      toast.error("Organisation context not found. Please reload the page.");
       return;
     }
     if (!message.trim()) {

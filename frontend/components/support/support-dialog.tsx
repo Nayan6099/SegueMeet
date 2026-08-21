@@ -29,8 +29,8 @@ interface SupportDialogProps {
 }
 
 export function SupportDialog({ open, onOpenChange }: SupportDialogProps) {
-  const { user } = useAuth();
-  const orgId = user?.memberships?.[0]?.organisationId;
+  const { user, activeOrgId } = useAuth();
+  const orgId = activeOrgId || user?.memberships?.[0]?.organisationId;
   const submitSupport = useSubmitSupportRequest();
 
   const [category, setCategory] = useState("ACCOUNT_LOGIN");
@@ -42,7 +42,7 @@ export function SupportDialog({ open, onOpenChange }: SupportDialogProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!orgId) {
-      toast.error("Organisation context not found");
+      toast.error("Organisation context not found. Please reload the page.");
       return;
     }
     if (!subject.trim() || !description.trim()) {

@@ -65,8 +65,8 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 export default function SettingsPage() {
-  const { user } = useAuth();
-  const orgId = user?.memberships?.[0]?.organisationId;
+  const { user, activeOrgId } = useAuth();
+  const orgId = activeOrgId || user?.memberships?.[0]?.organisationId;
   const [name, setName] = useState("");
   const [shortName, setShortName] = useState("");
   const [quorumType, setQuorumType] = useState("MAJORITY");
@@ -259,7 +259,14 @@ export default function SettingsPage() {
   }, [notifPrefs]);
 
   const handleSave = () => {
-    if (!name.trim()) return;
+    if (!orgId) {
+      toast.error("Organisation context not found. Please refresh the page.");
+      return;
+    }
+    if (!name.trim()) {
+      toast.error("Organisation name cannot be empty");
+      return;
+    }
 
     updateNotifPrefsMutation.mutate({
       inAppEnabled,
@@ -275,6 +282,7 @@ export default function SettingsPage() {
     });
 
     updateMutation.mutate({
+      organisationId: orgId,
       name,
       settings: {
         ...orgData?.settings,
@@ -295,7 +303,7 @@ export default function SettingsPage() {
       }
     }, {
       onSuccess: () => toast.success("Settings updated successfully"),
-      onError: () => toast.error("Failed to update settings"),
+      onError: (err: any) => toast.error(err?.response?.data?.message || "Failed to update settings"),
     });
   };
 
