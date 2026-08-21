@@ -31,8 +31,27 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload): Promise<AuthenticatedUser> {
-    if (payload.jti && this.tokenBlocklistService.isTokenRevoked(payload.jti)) {
-      throw new UnauthorizedException('Token has been revoked');
+    if (payload.jti) {
+      if (this.tokenBlocklistService.isTokenRevoked(payload.jti)) {
+        throw new UnauthorizedException('Token has been revoked');
+      }
+
+      // Verify session revocation in database if delegate is available
+      if ((this.prisma as any).userSession?.findUnique) {
+        try {
+          const session = await (this.prisma as any).userSession.findUnique({
+            where: { jti: payload.jti },
+            select: { isRevoked: true, expiresAt: true },
+          });
+
+          if (session?.isRevoked) {
+            this.tokenBlocklistService.revokeToken(payload.jti, Math.floor(session.expiresAt.getTime() / 1000));
+            throw new UnauthorizedException('Session has been revoked');
+          }
+        } catch (err) {
+          if (err instanceof UnauthorizedException) throw err;
+        }
+      }
     }
 
     const user = await this.prisma.user.findUnique({
@@ -56,6 +75,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     // Omit lastPasswordResetAt from the returned user object
     const { lastPasswordResetAt, ...safeUser } = user;
-    return safeUser as AuthenticatedUser;
+    return {
+      ...safeUser,
+      currentJti: payload.jti,
+    } as AuthenticatedUser;
   }
 }

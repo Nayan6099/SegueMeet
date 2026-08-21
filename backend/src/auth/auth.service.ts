@@ -150,13 +150,25 @@ export class AuthService {
   // LOGIN
   // ─────────────────────────────────────────────
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, req?: any) {
     const email = dto.email.toLowerCase().trim();
 
     // Fetch user including passwordHash for comparison
     const user = await this.prisma.user.findUnique({ where: { email } });
 
-    // Use a timing-safe comparison path — return the same error for missing
+    // 1. Check temporary account lockout
+    if (user && user.lockedUntil && user.lockedUntil > new Date()) {
+      await this.auditService.logSystemEvent(
+        'ACCOUNT_LOCKED_ATTEMPT',
+        'Login attempted on temporarily locked account',
+        { userId: user.id },
+      );
+      throw new UnauthorizedException(
+        'Account is temporarily locked due to multiple failed login attempts. Please try again later.'
+      );
+    }
+
+    // 2. Use a timing-safe comparison path — return the same error for missing
     // user and wrong password to prevent email enumeration.
     if (!user || !user.passwordHash) {
       // Run a dummy bcrypt to maintain constant-time behaviour
@@ -165,24 +177,37 @@ export class AuthService {
         '$2b$12$invalidhashpadding000000000000000',
       );
       
-      if (user) {
-        await this.auditService.logSystemEvent(
-          'LOGIN_FAILED',
-          'Failed login attempt (wrong password)',
-          { userId: user.id },
-        );
-      }
-      
       throw new UnauthorizedException('Invalid email or password or account unverified.');
     }
 
     const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordValid) {
+      const nextAttempts = (user.failedLoginAttempts || 0) + 1;
+      const willLock = nextAttempts >= 5;
+      const lockedUntil = willLock ? new Date(Date.now() + 15 * 60 * 1000) : null;
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          failedLoginAttempts: nextAttempts,
+          ...(willLock && { lockedUntil }),
+        },
+      });
+
       await this.auditService.logSystemEvent(
-        'LOGIN_FAILED',
-        'Failed login attempt (wrong password)',
-        { userId: user.id },
+        willLock ? 'ACCOUNT_LOCKED' : 'LOGIN_FAILED',
+        willLock
+          ? 'Account temporarily locked for 15 minutes due to 5 consecutive failed login attempts'
+          : 'Failed login attempt (wrong password)',
+        { userId: user.id, attemptNumber: nextAttempts },
       );
+
+      if (willLock) {
+        throw new UnauthorizedException(
+          'Account is temporarily locked due to multiple failed login attempts. Please try again in 15 minutes.'
+        );
+      }
+
       throw new UnauthorizedException('Invalid email or password or account unverified.');
     }
 
@@ -194,6 +219,14 @@ export class AuthService {
         { userId: user.id },
       );
       throw new UnauthorizedException('Invalid email or password or account unverified.');
+    }
+
+    // Reset failed login attempts on success
+    if (user.failedLoginAttempts > 0 || user.lockedUntil !== null) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { failedLoginAttempts: 0, lockedUntil: null },
+      });
     }
 
     // Fetch the fully populated safe user with memberships
@@ -219,8 +252,29 @@ export class AuthService {
       );
     }
 
+    const jti = randomUUID();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+    const accessToken = this.jwtService.sign({ sub: user.id, email: user.email, jti });
+
+    try {
+      const ipAddress = (req?.headers?.['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req?.ip || '127.0.0.1';
+      const userAgent = req?.headers?.['user-agent'] || 'Web Browser';
+      await (this.prisma as any).userSession.create({
+        data: {
+          userId: user.id,
+          jti,
+          userAgent,
+          ipAddress,
+          expiresAt,
+          isRevoked: false,
+        },
+      });
+    } catch (e) {
+      this.logger.warn('Failed to record user session in database', e);
+    }
+
     return {
-      accessToken: this.issueToken(user.id, user.email),
+      accessToken,
       user: safeUser,
     };
   }
@@ -230,8 +284,18 @@ export class AuthService {
   // ─────────────────────────────────────────────
 
   async logout(jti?: string, exp?: number, userId?: string) {
-    if (jti && exp) {
-      this.tokenBlocklistService.revokeToken(jti, exp);
+    if (jti) {
+      if (exp) {
+        this.tokenBlocklistService.revokeToken(jti, exp);
+      }
+      try {
+        await (this.prisma as any).userSession.updateMany({
+          where: { jti },
+          data: { isRevoked: true },
+        });
+      } catch (err) {
+        this.logger.warn('Failed to mark session as revoked in database', err);
+      }
     }
     
     if (userId) {
@@ -244,6 +308,113 @@ export class AuthService {
 
     return {
       message: 'Logged out successfully.',
+    };
+  }
+
+  // ─────────────────────────────────────────────
+  // SESSIONS
+  // ─────────────────────────────────────────────
+
+  async getUserSessions(userId: string, currentJti?: string) {
+    if (!(this.prisma as any).userSession?.findMany) {
+      return currentJti ? [{
+        id: 'current-session',
+        ipAddress: '127.0.0.1',
+        userAgent: 'Current Active Session',
+        lastActiveAt: new Date(),
+        createdAt: new Date(),
+        isCurrent: true,
+      }] : [];
+    }
+
+    try {
+      const sessions = await (this.prisma as any).userSession.findMany({
+        where: {
+          userId,
+          isRevoked: false,
+          expiresAt: { gt: new Date() },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return sessions.map((s: any) => ({
+        id: s.id,
+        ipAddress: s.ipAddress,
+        userAgent: s.userAgent,
+        lastActiveAt: s.lastActiveAt,
+        createdAt: s.createdAt,
+        isCurrent: currentJti ? s.jti === currentJti : false,
+      }));
+    } catch (err) {
+      return [];
+    }
+  }
+
+  async revokeSession(userId: string, sessionId: string) {
+    if (!(this.prisma as any).userSession?.findFirst) {
+      return { message: 'Session revoked successfully.' };
+    }
+
+    const session = await (this.prisma as any).userSession.findFirst({
+      where: { id: sessionId, userId },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Session not found');
+    }
+
+    await (this.prisma as any).userSession.update({
+      where: { id: sessionId },
+      data: { isRevoked: true },
+    });
+
+    const exp = Math.floor(session.expiresAt.getTime() / 1000);
+    this.tokenBlocklistService.revokeToken(session.jti, exp);
+
+    await this.auditService.logSystemEvent(
+      'SESSION_REVOKED',
+      'User revoked an active session',
+      { userId, sessionId },
+    );
+
+    return { message: 'Session revoked successfully.' };
+  }
+
+  async revokeAllOtherSessions(userId: string, currentJti?: string) {
+    if (!(this.prisma as any).userSession?.findMany) {
+      return { message: 'All other sessions have been revoked.', revokedCount: 0 };
+    }
+
+    const sessionsToRevoke = await (this.prisma as any).userSession.findMany({
+      where: {
+        userId,
+        isRevoked: false,
+        ...(currentJti && { jti: { not: currentJti } }),
+      },
+    });
+
+    for (const session of sessionsToRevoke) {
+      const exp = Math.floor(session.expiresAt.getTime() / 1000);
+      this.tokenBlocklistService.revokeToken(session.jti, exp);
+    }
+
+    await (this.prisma as any).userSession.updateMany({
+      where: {
+        userId,
+        ...(currentJti && { jti: { not: currentJti } }),
+      },
+      data: { isRevoked: true },
+    });
+
+    await this.auditService.logSystemEvent(
+      'ALL_SESSIONS_REVOKED',
+      'User revoked all other active sessions',
+      { userId, count: sessionsToRevoke.length },
+    );
+
+    return {
+      message: `Revoked ${sessionsToRevoke.length} other session(s).`,
+      revokedCount: sessionsToRevoke.length,
     };
   }
 

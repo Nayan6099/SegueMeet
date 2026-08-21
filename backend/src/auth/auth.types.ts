@@ -29,6 +29,7 @@ export interface AuthenticatedUser {
   avatarUrl?: string | null;
   createdAt: Date;
   updatedAt: Date;
+  currentJti?: string;
 }
 
 /** Prisma select that guarantees passwordHash is never returned. */

@@ -128,10 +128,14 @@ model User {
   resetPasswordExpires   DateTime?
   /// Timestamp of last password reset for session revocation
   lastPasswordResetAt    DateTime?
+  /// Failed login attempt tracking and account lockout
+  failedLoginAttempts    Int       @default(0)
+  lockedUntil            DateTime?
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
   memberships          OrganisationMember[]
+  sessions             UserSession[]
   assignedActionItems  MinutesActionItem[]  @relation("ActionAssignee")
   auditLogs            AuditLog[]
   notifications        Notification[]
@@ -148,6 +152,24 @@ model User {
   meetingConflicts     MeetingConflict[]
 
   @@map("users")
+}
+
+model UserSession {
+  id           String   @id @default(uuid())
+  userId       String
+  jti          String   @unique
+  userAgent    String?
+  ipAddress    String?
+  lastActiveAt DateTime @default(now())
+  expiresAt    DateTime
+  isRevoked    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([jti])
+  @@map("user_sessions")
 }
 
 model Organisation {

@@ -31,6 +31,13 @@ describe('AuthService & Security Validation Rules', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
+      userSession: {
+        findFirst: jest.fn(),
+        findMany: jest.fn(),
+        create: jest.fn(),
+        update: jest.fn(),
+        updateMany: jest.fn(),
+      },
       $transaction: jest.fn((cb) => cb(prismaService)),
       organisation: {
         create: jest.fn(),
@@ -213,6 +220,78 @@ describe('AuthService & Security Validation Rules', () => {
       const hash = await bcrypt.hash('Password12345!', 12);
       (prismaService.user.findUnique as jest.Mock).mockResolvedValue({ id: '1', passwordHash: hash, isEmailVerified: false });
       await expect(service.login({ email: 'test@test.com', password: 'Password12345!' })).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should block login if account is temporarily locked', async () => {
+      (prismaService.user.findUnique as jest.Mock).mockResolvedValue({
+        id: '1',
+        passwordHash: 'hash',
+        lockedUntil: new Date(Date.now() + 10 * 60 * 1000),
+      });
+
+      await expect(service.login({ email: 'test@test.com', password: 'Password12345!' }))
+        .rejects.toThrow('Account is temporarily locked due to multiple failed login attempts');
+    });
+
+    it('should lock account for 15 minutes after 5 failed attempts', async () => {
+      const hash = await bcrypt.hash('CorrectPass123!', 12);
+      (prismaService.user.findUnique as jest.Mock).mockResolvedValue({
+        id: 'user-1',
+        passwordHash: hash,
+        failedLoginAttempts: 4,
+        isEmailVerified: true,
+      });
+
+      await expect(service.login({ email: 'test@test.com', password: 'WrongPassword123!' }))
+        .rejects.toThrow('Account is temporarily locked due to multiple failed login attempts');
+
+      expect(prismaService.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'user-1' },
+          data: expect.objectContaining({
+            failedLoginAttempts: 5,
+            lockedUntil: expect.any(Date),
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('Session Management', () => {
+    it('should return active sessions with isCurrent flag', async () => {
+      prismaService.userSession.findMany.mockResolvedValue([
+        { id: 's1', jti: 'jti-1', userAgent: 'Chrome', ipAddress: '127.0.0.1', lastActiveAt: new Date(), createdAt: new Date() },
+        { id: 's2', jti: 'jti-2', userAgent: 'Safari', ipAddress: '192.168.1.1', lastActiveAt: new Date(), createdAt: new Date() },
+      ]);
+
+      const sessions = await service.getUserSessions('user-1', 'jti-1');
+      expect(sessions).toHaveLength(2);
+      expect(sessions[0].isCurrent).toBe(true);
+      expect(sessions[1].isCurrent).toBe(false);
+    });
+
+    it('should revoke a single session and token', async () => {
+      prismaService.userSession.findFirst.mockResolvedValue({
+        id: 's1',
+        userId: 'user-1',
+        jti: 'jti-1',
+        expiresAt: new Date(Date.now() + 600000),
+      });
+      prismaService.userSession.update.mockResolvedValue({ id: 's1', isRevoked: true });
+
+      const res = await service.revokeSession('user-1', 's1');
+      expect(res.message).toBe('Session revoked successfully.');
+      expect(tokenBlocklistService.revokeToken).toHaveBeenCalled();
+    });
+
+    it('should revoke all other sessions', async () => {
+      prismaService.userSession.findMany.mockResolvedValue([
+        { id: 's2', jti: 'jti-2', expiresAt: new Date(Date.now() + 600000) },
+      ]);
+
+      const res = await service.revokeAllOtherSessions('user-1', 'jti-1');
+      expect(res.revokedCount).toBe(1);
+      expect(tokenBlocklistService.revokeToken).toHaveBeenCalledWith('jti-2', expect.any(Number));
     });
   });
 });

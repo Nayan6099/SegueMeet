@@ -60,11 +60,9 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(@Body() dto: LoginDto, @Req() req: Request) {
+    return this.authService.login(dto, req);
   }
-
-
 
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
@@ -96,6 +94,45 @@ export class AuthController {
       }
     }
     return this.authService.logout();
+  }
+
+  /**
+   * GET /auth/sessions
+   *
+   * List active sessions for the current user.
+   */
+  @Get('sessions')
+  @UseGuards(JwtAuthGuard)
+  getSessions(@CurrentUser() user: AuthenticatedUser) {
+    return this.authService.getUserSessions(user.id, user.currentJti);
+  }
+
+  /**
+   * DELETE /auth/sessions/:id
+   *
+   * Revoke a specific active session.
+   */
+  @Post('sessions/:id/revoke')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  revokeSession(
+    @Req() req: Request,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const sessionId = (req.params as any)?.id;
+    return this.authService.revokeSession(user.id, sessionId);
+  }
+
+  /**
+   * POST /auth/sessions/revoke-others
+   *
+   * Revoke all active sessions except the current one.
+   */
+  @Post('sessions/revoke-others')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  revokeAllOtherSessions(@CurrentUser() user: AuthenticatedUser) {
+    return this.authService.revokeAllOtherSessions(user.id, user.currentJti);
   }
 
   /**

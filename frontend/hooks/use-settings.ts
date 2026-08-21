@@ -40,3 +40,43 @@ export function useGetAuditLogs(organisationId: string | undefined) {
     enabled: !!organisationId,
   });
 }
+
+// Fetch active sessions
+export function useGetSessions() {
+  return useQuery({
+    queryKey: ["auth-sessions"],
+    queryFn: async () => {
+      const res = await api.get("/auth/sessions");
+      return res.data;
+    },
+  });
+}
+
+// Revoke a single session
+export function useRevokeSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      const res = await api.post(`/auth/sessions/${sessionId}/revoke`);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auth-sessions"] });
+    },
+  });
+}
+
+// Revoke all other sessions
+export function useRevokeAllOtherSessions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await api.post("/auth/sessions/revoke-others");
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["auth-sessions"] });
+    },
+  });
+}
+
