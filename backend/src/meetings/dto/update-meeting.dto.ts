@@ -67,4 +67,7 @@ export class UpdateMeetingDto {
   @IsOptional()
   @IsBoolean()
   committeeVisible?: boolean;
+
+  @IsOptional()
+  requiredQuorum?: number;
 }

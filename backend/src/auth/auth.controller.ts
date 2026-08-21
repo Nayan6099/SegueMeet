@@ -24,7 +24,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -66,6 +66,19 @@ export class AuthController {
 
 
 
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  resendVerification(@Body('email') email: string) {
+    return this.authService.resendVerification(email);
+  }
+
+  @Get('verify')
+  verify(@Req() req: Request) {
+    const token = req.query.token as string;
+    return this.authService.verifyEmail(token);
+  }
+
   /**
    * POST /auth/logout
    *
@@ -79,7 +92,7 @@ export class AuthController {
     if (token) {
       const decoded = this.jwtService.decode(token) as any;
       if (decoded && decoded.jti && decoded.exp) {
-        return this.authService.logout(decoded.jti, decoded.exp);
+        return this.authService.logout(decoded.jti, decoded.exp, decoded.sub);
       }
     }
     return this.authService.logout();
@@ -120,8 +133,19 @@ export class AuthController {
 
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @Body() dto: ChangePasswordDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.authService.changePassword(user, dto);
   }
 
   /**

@@ -109,21 +109,27 @@ enum BoardPackStatus {
 // ─────────────────────────────────────────────
 
 model User {
-  id                   String    @id @default(uuid())
-  email                String    @unique
-  name                 String
-  mobileNumber         String?
-  title                String?
-  suffix               String?
-  avatarUrl            String?
-  /// Bcrypt-hashed password — set once auth module is built.
-  passwordHash         String?
+  id                     String    @id @default(uuid())
+  email                  String    @unique
+  name                   String
+  mobileNumber           String?
+  title                  String?
+  suffix                 String?
+  avatarUrl              String?
+  /// Bcrypt-hashed password
+  passwordHash           String?
+  /// Email verification
+  isEmailVerified        Boolean   @default(false)
+  verificationTokenHash  String?
+  verificationExpires    DateTime?
   /// Token used for password resets
-  resetPasswordToken   String?
+  resetPasswordTokenHash String?
   /// Expiration time for the password reset token
-  resetPasswordExpires DateTime?
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  resetPasswordExpires   DateTime?
+  /// Timestamp of last password reset for session revocation
+  lastPasswordResetAt    DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
   memberships          OrganisationMember[]
   assignedActionItems  MinutesActionItem[]  @relation("ActionAssignee")
@@ -236,6 +242,7 @@ model Meeting {
   agendaStatus     AgendaStatus  @default(DRAFT)
   committeeId      String?
   committeeVisible Boolean       @default(false)
+  requiredQuorum   Int?          /// Configurable required quorum count, null for default
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -255,12 +262,13 @@ model Meeting {
 }
 
 model MeetingAttendee {
-  id        String   @id @default(uuid())
-  meetingId String
-  userId    String
-  rsvp      String?  @default("PENDING") // 'ACCEPTED', 'DECLINED', 'TENTATIVE', 'PENDING'
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String   @id @default(uuid())
+  meetingId        String
+  userId           String
+  rsvp             String?  @default("PENDING") // 'ACCEPTED', 'DECLINED', 'TENTATIVE', 'PENDING'
+  attendanceStatus String?  @default("PRESENT") // 'PRESENT', 'ABSENT', 'EXCUSED', 'REMOTE', 'LATE'
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   meeting Meeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)

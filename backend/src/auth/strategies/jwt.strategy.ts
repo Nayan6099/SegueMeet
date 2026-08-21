@@ -37,13 +37,25 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      select: SAFE_USER_SELECT,
+      select: {
+        ...SAFE_USER_SELECT,
+        lastPasswordResetAt: true,
+      },
     });
 
     if (!user) {
       throw new UnauthorizedException('Token is no longer valid');
     }
 
-    return user;
+    if (user.lastPasswordResetAt && payload.iat) {
+      const issuedAtDate = new Date(payload.iat * 1000);
+      if (issuedAtDate < user.lastPasswordResetAt) {
+        throw new UnauthorizedException('Token has been revoked due to a password reset');
+      }
+    }
+
+    // Omit lastPasswordResetAt from the returned user object
+    const { lastPasswordResetAt, ...safeUser } = user;
+    return safeUser as AuthenticatedUser;
   }
 }

@@ -78,4 +78,7 @@ export class CreateMeetingDto {
   @IsOptional()
   @IsBoolean()
   committeeVisible?: boolean;
+
+  @IsOptional()
+  requiredQuorum?: number;
 }

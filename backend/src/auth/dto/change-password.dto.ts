@@ -1,10 +1,11 @@
 import { IsNotEmpty, IsString, MinLength, MaxLength, Matches } from 'class-validator';
 import { Match } from '../../common/decorators/match.decorator';
 
-export class ResetPasswordDto {
+export class ChangePasswordDto {
   @IsString()
   @IsNotEmpty()
-  token: string;
+  @MaxLength(20, { message: 'Current password cannot exceed 20 characters' })
+  currentPassword: string;
 
   @IsString()
   @IsNotEmpty()

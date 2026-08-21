@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { randomUUID, randomBytes } from 'crypto';
+import { randomUUID, randomBytes, createHash } from 'crypto';
 import { OrganisationRole } from '@prisma/client';
 import { PrismaService } from '../common/database/prisma.service';
 import { TokenBlocklistService } from './token-blocklist.service';
@@ -15,7 +15,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import {
   type JwtPayload,
@@ -28,6 +28,8 @@ import * as streamifier from 'streamifier';
 /** bcrypt cost factor — 12 rounds is the recommended production minimum. */
 const BCRYPT_ROUNDS = 12;
 
+import { AuditService } from '../audit/audit.service';
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -35,6 +37,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly tokenBlocklistService: TokenBlocklistService,
     private readonly mailService: MailService,
+    private readonly auditService: AuditService,
   ) {
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -64,6 +67,11 @@ export class AuthService {
     // 2. Hash password — never store plaintext
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
 
+    // 2.5 Generate email verification token (SHA-256 hash for DB, raw token for email)
+    const verificationToken = randomBytes(32).toString('hex');
+    const verificationTokenHash = createHash('sha256').update(verificationToken).digest('hex');
+    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
     // 3. Atomically create: User → Organisation → OrganisationMember (BOARD_ADMIN)
     //    Using $transaction to guarantee consistency.
     let result: { userId: string; orgId: string; orgName: string };
@@ -74,6 +82,9 @@ export class AuthService {
             email,
             name: dto.name.trim(),
             passwordHash,
+            isEmailVerified: false,
+            verificationTokenHash,
+            verificationExpires,
           },
           select: { id: true },
         });
@@ -120,11 +131,18 @@ export class AuthService {
       },
     });
 
+    // 4. Send verification email
+    await this.mailService.sendVerificationEmail(safeUser.email, verificationToken);
+
+    await this.auditService.logSystemEvent(
+      'USER_REGISTERED',
+      'User successfully registered an account',
+      { userId: safeUser.id },
+    );
+
     return {
-      accessToken: this.issueToken(safeUser.id, safeUser.email),
+      message: 'Account created successfully. Please verify your email.',
       user: safeUser,
-      // organisation is also returned for backward compatibility if the client expects it at the top level
-      organisation: { id: result.orgId, name: result.orgName },
     };
   }
 
@@ -146,12 +164,36 @@ export class AuthService {
         dto.password,
         '$2b$12$invalidhashpadding000000000000000',
       );
-      throw new UnauthorizedException('Invalid email or password');
+      
+      if (user) {
+        await this.auditService.logSystemEvent(
+          'LOGIN_FAILED',
+          'Failed login attempt (wrong password)',
+          { userId: user.id },
+        );
+      }
+      
+      throw new UnauthorizedException('Invalid email or password or account unverified.');
     }
 
     const passwordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!passwordValid) {
-      throw new UnauthorizedException('Invalid email or password');
+      await this.auditService.logSystemEvent(
+        'LOGIN_FAILED',
+        'Failed login attempt (wrong password)',
+        { userId: user.id },
+      );
+      throw new UnauthorizedException('Invalid email or password or account unverified.');
+    }
+
+    // Unverified account
+    if (!user.isEmailVerified) {
+      await this.auditService.logSystemEvent(
+        'LOGIN_FAILED',
+        'Failed login attempt (account unverified)',
+        { userId: user.id },
+      );
+      throw new UnauthorizedException('Invalid email or password or account unverified.');
     }
 
     // Fetch the fully populated safe user with memberships
@@ -169,6 +211,14 @@ export class AuthService {
       },
     });
 
+    if (safeUser) {
+      await this.auditService.logSystemEvent(
+        'LOGIN_SUCCESS',
+        'User successfully logged in',
+        { userId: safeUser.id },
+      );
+    }
+
     return {
       accessToken: this.issueToken(user.id, user.email),
       user: safeUser,
@@ -179,10 +229,19 @@ export class AuthService {
   // LOGOUT
   // ─────────────────────────────────────────────
 
-  logout(jti?: string, exp?: number) {
+  async logout(jti?: string, exp?: number, userId?: string) {
     if (jti && exp) {
       this.tokenBlocklistService.revokeToken(jti, exp);
     }
+    
+    if (userId) {
+      await this.auditService.logSystemEvent(
+        'LOGOUT',
+        'User logged out',
+        { userId },
+      );
+    }
+
     return {
       message: 'Logged out successfully.',
     };
@@ -269,6 +328,76 @@ export class AuthService {
   }
 
   // ─────────────────────────────────────────────
+  // EMAIL VERIFICATION
+  // ─────────────────────────────────────────────
+
+  async verifyEmail(token: string) {
+    const verificationTokenHash = createHash('sha256').update(token).digest('hex');
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        verificationTokenHash,
+        verificationExpires: { gt: new Date() },
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid or expired verification token');
+    }
+
+    if (user.isEmailVerified) {
+      return { message: 'Email is already verified' };
+    }
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isEmailVerified: true,
+        verificationTokenHash: null,
+        verificationExpires: null,
+      },
+    });
+
+    await this.auditService.logSystemEvent(
+      'EMAIL_VERIFIED',
+      'User verified their email address',
+      { userId: user.id },
+    );
+
+    return { message: 'Email verified successfully' };
+  }
+
+  async resendVerification(email: string) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await this.prisma.user.findUnique({ where: { email: normalizedEmail } });
+
+    if (user && !user.isEmailVerified) {
+      const verificationToken = randomBytes(32).toString('hex');
+      const verificationTokenHash = createHash('sha256').update(verificationToken).digest('hex');
+      const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          verificationTokenHash,
+          verificationExpires,
+        },
+      });
+
+      await this.mailService.sendVerificationEmail(user.email, verificationToken);
+      
+      await this.auditService.logSystemEvent(
+        'EMAIL_VERIFICATION_SENT',
+        'Resent verification email',
+        { userId: user.id },
+      );
+    }
+
+    // Generic response to prevent enumeration
+    return { message: 'If the account exists and requires verification, a verification email has been sent.' };
+  }
+
+  // ─────────────────────────────────────────────
   // PASSWORD RESET
   // ─────────────────────────────────────────────
 
@@ -281,33 +410,40 @@ export class AuthService {
 
     // Silently return success to prevent email enumeration
     if (!user) {
-      return { success: true };
+      return { message: 'If an account exists for this email, a password reset link has been sent.' };
     }
 
     // Generate secure token
     const resetToken = randomBytes(32).toString('hex');
+    const resetTokenHash = createHash('sha256').update(resetToken).digest('hex');
     const resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
-        resetPasswordToken: resetToken,
+        resetPasswordTokenHash: resetTokenHash,
         resetPasswordExpires,
       },
     });
 
     await this.mailService.sendPasswordResetEmail(user.email, resetToken);
 
-    return { success: true };
+    await this.auditService.logSystemEvent(
+      'PASSWORD_RESET_REQUESTED',
+      'User requested a password reset',
+      { userId: user.id },
+    );
+
+    return { message: 'If an account exists for this email, a password reset link has been sent.' };
   }
 
   async resetPassword(dto: ResetPasswordDto) {
+    const resetTokenHash = createHash('sha256').update(dto.token).digest('hex');
+
     const user = await this.prisma.user.findFirst({
       where: {
-        resetPasswordToken: dto.token,
-        resetPasswordExpires: {
-          gt: new Date(),
-        },
+        resetPasswordTokenHash: resetTokenHash,
+        resetPasswordExpires: { gt: new Date() },
       },
     });
 
@@ -321,12 +457,60 @@ export class AuthService {
       where: { id: user.id },
       data: {
         passwordHash,
-        resetPasswordToken: null,
+        resetPasswordTokenHash: null,
         resetPasswordExpires: null,
+        lastPasswordResetAt: new Date(),
       },
     });
 
-    return { success: true };
+    await this.auditService.logSystemEvent(
+      'PASSWORD_RESET_COMPLETED',
+      'User completed password reset',
+      { userId: user.id },
+    );
+
+    return { message: 'Password has been reset successfully.' };
+  }
+
+  // ─────────────────────────────────────────────
+  // CHANGE PASSWORD
+  // ─────────────────────────────────────────────
+
+  async changePassword(currentUser: AuthenticatedUser, dto: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: currentUser.id },
+    });
+
+    if (!user || !user.passwordHash) {
+      throw new UnauthorizedException('User not found or password not set.');
+    }
+
+    const passwordValid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    if (!passwordValid) {
+      throw new UnauthorizedException('Incorrect current password.');
+    }
+
+    if (await bcrypt.compare(dto.newPassword, user.passwordHash)) {
+      throw new ConflictException('New password must be different from current password.');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        lastPasswordResetAt: new Date(),
+      },
+    });
+
+    await this.auditService.logSystemEvent(
+      'PASSWORD_CHANGED',
+      'User changed their password',
+      { userId: user.id },
+    );
+
+    return { message: 'Password changed successfully.' };
   }
 
   // ─────────────────────────────────────────────

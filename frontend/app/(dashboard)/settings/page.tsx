@@ -20,6 +20,10 @@ export default function SettingsPage() {
   const orgId = user?.memberships?.[0]?.organisationId;
   const [name, setName] = useState("");
   const [shortName, setShortName] = useState("");
+  const [quorumType, setQuorumType] = useState("MAJORITY");
+  const [defaultQuorumPercentage, setDefaultQuorumPercentage] = useState("50");
+  const [defaultQuorumCount, setDefaultQuorumCount] = useState("");
+
   const { data: orgData, isLoading } = useGetOrganisationSettings(orgId);
   const updateMutation = useUpdateOrganisationSettings(orgId);
   const { data: auditLogs = [], isLoading: isLoadingAudit } = useGetAuditLogs(orgId);
@@ -28,6 +32,9 @@ export default function SettingsPage() {
     if (orgData) {
       setName(orgData.name || "");
       setShortName(orgData.settings?.shortName || "");
+      setQuorumType(orgData.settings?.quorumType || "MAJORITY");
+      setDefaultQuorumPercentage(orgData.settings?.defaultQuorumPercentage || "50");
+      setDefaultQuorumCount(orgData.settings?.defaultQuorumCount || "");
     }
   }, [orgData]);
 
@@ -38,6 +45,9 @@ export default function SettingsPage() {
       settings: {
         ...orgData?.settings,
         shortName,
+        quorumType,
+        defaultQuorumPercentage,
+        defaultQuorumCount,
       }
     });
   };
@@ -76,12 +86,6 @@ export default function SettingsPage() {
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-slate-500 hover:text-slate-700"
             >
               Security
-            </TabsTrigger>
-            <TabsTrigger
-              value="ai"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-slate-500 hover:text-slate-700"
-            >
-              BoardPro AI
             </TabsTrigger>
             <TabsTrigger
               value="notifications"
@@ -153,7 +157,7 @@ export default function SettingsPage() {
               <div className="col-span-1">
                 <h3 className="text-sm font-medium text-slate-800">Country of Operation</h3>
                 <p className="text-sm text-slate-500 mt-1">Primary Country for this organisation.</p>
-                <p className="text-sm text-slate-500 mt-2">Contact BoardPro support if the country needs to be changed.</p>
+                <p className="text-sm text-slate-500 mt-2">Contact SegueMeet support if the country needs to be changed.</p>
               </div>
               <div className="col-span-2">
                 <Input defaultValue="India" disabled className="max-w-2xl h-10 border-slate-200 bg-slate-50 text-slate-500" />
@@ -219,9 +223,85 @@ export default function SettingsPage() {
           </div>
         </TabsContent>
         
-        {/* Empty state for other tabs just in case */}
-        <TabsContent value="quorum">
-          <div className="p-8 text-center text-slate-500 border rounded-lg bg-white mt-8">Quorum settings coming soon.</div>
+        {/* Quorum & Participation Settings */}
+        <TabsContent value="quorum" className="mt-0">
+          <div className="divide-y divide-slate-100 bg-white border border-slate-100 rounded-lg p-4 md:p-8 shadow-sm">
+            
+            {/* Rule Type */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-12 py-6 first:pt-0">
+              <div className="col-span-1">
+                <h3 className="text-sm font-medium text-slate-800">Default Quorum Rule</h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  How quorum requirements are calculated for meetings by default. Individual meetings can also override this.
+                </p>
+              </div>
+              <div className="col-span-2 space-y-4">
+                <Select value={quorumType} onValueChange={(val) => setQuorumType(val || "MAJORITY")}>
+                  <SelectTrigger className="w-full max-w-2xl h-10 border-slate-200 text-slate-700 bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="w-full min-w-[320px] max-w-2xl">
+                    <SelectItem value="MAJORITY">Simple Majority (50% + 1 of eligible members)</SelectItem>
+                    <SelectItem value="PERCENTAGE">Custom Percentage of eligible members</SelectItem>
+                    <SelectItem value="FIXED">Fixed minimum attendee count</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {quorumType === "PERCENTAGE" && (
+                  <div className="space-y-1.5 max-w-sm">
+                    <label className="text-xs font-medium text-slate-600">Required Percentage (%)</label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={defaultQuorumPercentage}
+                      onChange={(e) => setDefaultQuorumPercentage(e.target.value)}
+                      placeholder="e.g. 50"
+                      className="h-10 border-slate-200"
+                    />
+                  </div>
+                )}
+
+                {quorumType === "FIXED" && (
+                  <div className="space-y-1.5 max-w-sm">
+                    <label className="text-xs font-medium text-slate-600">Minimum Required Attendees Count</label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={defaultQuorumCount}
+                      onChange={(e) => setDefaultQuorumCount(e.target.value)}
+                      placeholder="e.g. 5"
+                      className="h-10 border-slate-200"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Participation Standards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-12 py-6">
+              <div className="col-span-1">
+                <h3 className="text-sm font-medium text-slate-800">Participation Tracking</h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Participation rate measures the ratio of present and participating attendees relative to total eligible members.
+                </p>
+              </div>
+              <div className="col-span-2">
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2 text-sm text-slate-700 max-w-2xl">
+                  <div className="font-semibold text-xs text-slate-800 uppercase tracking-wider">
+                    Governance Standard Formula
+                  </div>
+                  <p className="text-xs text-slate-600">
+                    <span className="font-semibold">Participation (%) =</span> (Present + Remote + Late Attendees) / Total Eligible Members × 100
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Members marked as Excused or Absent are tracked in the meeting record and audit log.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+          </div>
         </TabsContent>
         
         <TabsContent value="audit" className="mt-0">
