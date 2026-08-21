@@ -27,6 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 export default function BetweenMeetingsPage() {
   const { user, activeOrgId } = useAuth();
@@ -52,11 +53,16 @@ export default function BetweenMeetingsPage() {
   });
 
   const voteMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      await api.post(`/resolutions/${id}/vote`, { status });
+    mutationFn: async ({ id, status }: { id: string; status: "IN_FAVOUR" | "AGAINST" }) => {
+      const res = await api.post(`/resolutions/${id}/vote`, { status, vote: status });
+      return res.data;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      toast.success(variables.status === "IN_FAVOUR" ? "Vote cast: Approved (In Favour)" : "Vote cast: Rejected (Against)");
       queryClient.invalidateQueries({ queryKey: ["resolutions"] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || "Failed to record vote");
     },
   });
 
@@ -336,18 +342,30 @@ export default function BetweenMeetingsPage() {
                   {res.status === 'OPEN' && (
                     <div className="flex gap-2 w-full sm:w-auto">
                       <Button 
+                        disabled={voteMutation.isPending}
                         variant={myVote?.status === "IN_FAVOUR" ? "default" : "outline"} 
                         className={`flex-1 sm:flex-none ${myVote?.status === "IN_FAVOUR" ? "bg-green-600 hover:bg-green-700 text-white border-green-600" : "text-green-600 border-green-200 hover:bg-green-50"}`}
                         onClick={() => voteMutation.mutate({ id: res.id, status: "IN_FAVOUR" })}
                       >
-                        <ThumbsUp className="w-4 h-4 mr-2" /> Approve
+                        {voteMutation.isPending && (voteMutation.variables as any)?.id === res.id && (voteMutation.variables as any)?.status === "IN_FAVOUR" ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <ThumbsUp className="w-4 h-4 mr-2" />
+                        )}
+                        Approve
                       </Button>
                       <Button 
+                        disabled={voteMutation.isPending}
                         variant={myVote?.status === "AGAINST" ? "default" : "outline"}
                         className={`flex-1 sm:flex-none ${myVote?.status === "AGAINST" ? "bg-red-600 hover:bg-red-700 text-white border-red-600" : "text-red-600 border-red-200 hover:bg-red-50"}`}
                         onClick={() => voteMutation.mutate({ id: res.id, status: "AGAINST" })}
                       >
-                        <ThumbsDown className="w-4 h-4 mr-2" /> Reject
+                        {voteMutation.isPending && (voteMutation.variables as any)?.id === res.id && (voteMutation.variables as any)?.status === "AGAINST" ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <ThumbsDown className="w-4 h-4 mr-2" />
+                        )}
+                        Reject
                       </Button>
                     </div>
                   )}
