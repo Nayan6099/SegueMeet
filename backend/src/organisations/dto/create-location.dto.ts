@@ -6,7 +6,12 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
-import { MeetingLocationType } from '@prisma/client';
+
+export enum MeetingLocationType {
+  IN_PERSON = 'IN_PERSON',
+  VIRTUAL = 'VIRTUAL',
+  HYBRID = 'HYBRID',
+}
 
 export class CreateLocationDto {
   @IsString()
