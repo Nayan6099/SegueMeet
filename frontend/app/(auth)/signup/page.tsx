@@ -6,15 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { 
-  Loader2, 
-  X, 
-  Eye, 
-  EyeOff, 
-  Check, 
-  AlertCircle, 
-  ShieldCheck, 
-  Lock, 
+import {
+  Loader2,
+  X,
+  Eye,
+  EyeOff,
+  Check,
+  AlertCircle,
+  ShieldCheck,
+  Lock,
   KeyRound,
   Sparkles,
   CheckCircle2
@@ -22,13 +22,13 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
-import { 
-  validateEmailStrict, 
+import {
+  validateEmailStrict,
   validateName,
   validateOrganisationName,
   validatePhysicalAddress,
   evaluatePasswordStrength,
-  VALIDATION_LIMITS 
+  VALIDATION_LIMITS
 } from "@/lib/validation";
 
 const COUNTRIES = [
@@ -45,19 +45,19 @@ const COUNTRIES = [
 export default function SignupPage() {
   const router = useRouter();
   const { login } = useAuth();
-  
+
   const [step, setStep] = useState<1 | 2>(1);
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Step 1 State
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
-  
+
   // Step 2 State
   const [organisationName, setOrganisationName] = useState("");
   const [physicalAddress, setPhysicalAddress] = useState("");
@@ -99,7 +99,7 @@ export default function SignupPage() {
 
   const handleNext = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const nameCheck = validateName(name);
     if (!nameCheck.isValid) {
       setError(nameCheck.error || "Full Name is required.");
@@ -109,7 +109,7 @@ export default function SignupPage() {
     const emailCheck = validateEmailStrict(email);
     if (!emailCheck.isValid) {
       setError(
-        emailCheck.suggestion 
+        emailCheck.suggestion
           ? `${emailCheck.error} ${emailCheck.suggestion}`
           : (emailCheck.error || "Please enter a valid, complete email address.")
       );
@@ -142,7 +142,7 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const orgCheck = validateOrganisationName(organisationName);
     if (!orgCheck.isValid) {
       setError(orgCheck.error || "Organisation name is required.");
@@ -161,15 +161,15 @@ export default function SignupPage() {
       setError("You must accept the Terms of Use and AI Terms.");
       return;
     }
-    
+
     setIsLoading(true);
     setError(null);
 
     try {
-      await api.post("/auth/register", { 
-        name: name.trim(), 
-        email: email.trim().toLowerCase(), 
-        password, 
+      await api.post("/auth/register", {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
         passwordConfirmation,
         organisationName: organisationName.trim(),
         physicalAddress: physicalAddress.trim() || undefined,
@@ -216,7 +216,7 @@ export default function SignupPage() {
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1.5">
           <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-            <Lock className="w-3 h-3" /> Enterprise Security
+            <Lock className="w-3 h-3" />
           </span>
           <span className="text-xs text-slate-400 font-medium">Step {step} of 2</span>
         </div>
@@ -235,7 +235,7 @@ export default function SignupPage() {
             <div className="leading-snug">{error}</div>
           </div>
         )}
-        
+
         {step === 1 && (
           <div className="space-y-4">
             {/* Name */}
@@ -248,10 +248,10 @@ export default function SignupPage() {
                   {name.length}/{VALIDATION_LIMITS.NAME.MAX}
                 </span>
               </div>
-              <Input 
-                id="name" 
-                type="text" 
-                placeholder="e.g. Nayan Mishra" 
+              <Input
+                id="name"
+                type="text"
+                placeholder="e.g. Nayan Mishra"
                 value={name}
                 minLength={VALIDATION_LIMITS.NAME.MIN}
                 maxLength={VALIDATION_LIMITS.NAME.MAX}
@@ -284,18 +284,17 @@ export default function SignupPage() {
                   )
                 )}
               </div>
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="name@company.com" 
+              <Input
+                id="email"
+                type="email"
+                placeholder="name@company.com"
                 value={email}
                 maxLength={VALIDATION_LIMITS.EMAIL.MAX}
                 onChange={(e) => setEmail(e.target.value)}
-                className={`h-10 ${
-                  email && emailValidation && !emailValidation.isValid 
-                    ? "border-amber-400 focus-visible:ring-amber-400" 
+                className={`h-10 ${email && emailValidation && !emailValidation.isValid
+                    ? "border-amber-400 focus-visible:ring-amber-400"
                     : ""
-                }`}
+                  }`}
               />
               {email && emailValidation && !emailValidation.isValid && (
                 <div className="space-y-1 mt-1">
@@ -316,7 +315,7 @@ export default function SignupPage() {
                 </div>
               )}
             </div>
-            
+
             {/* Password */}
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between">
@@ -328,22 +327,21 @@ export default function SignupPage() {
                     {password.length}/{VALIDATION_LIMITS.PASSWORD.MAX}
                   </span>
                   {password && (
-                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
-                      passwordMetrics.strengthLabel === 'Enterprise Grade' || passwordMetrics.strengthLabel === 'Strong'
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${passwordMetrics.strengthLabel === 'Enterprise Grade' || passwordMetrics.strengthLabel === 'Strong'
                         ? 'bg-emerald-100 text-emerald-800'
                         : passwordMetrics.strengthLabel === 'Fair'
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
                       Security: {passwordMetrics.strengthLabel}
                     </span>
                   )}
                 </div>
               </div>
               <div className="relative">
-                <Input 
-                  id="password" 
-                  type={showPassword ? "text" : "password"} 
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="Enter strong password (12-20 chars)"
                   value={password}
                   minLength={VALIDATION_LIMITS.PASSWORD.MIN}
@@ -365,14 +363,13 @@ export default function SignupPage() {
               {password && (
                 <div className="space-y-1.5 pt-1">
                   <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full transition-all duration-300 ${
-                        passwordMetrics.strengthPercentage <= 40
+                    <div
+                      className={`h-full transition-all duration-300 ${passwordMetrics.strengthPercentage <= 40
                           ? 'bg-red-500 w-1/4'
                           : passwordMetrics.strengthPercentage <= 80
-                          ? 'bg-amber-500 w-3/4'
-                          : 'bg-emerald-600 w-full'
-                      }`}
+                            ? 'bg-amber-500 w-3/4'
+                            : 'bg-emerald-600 w-full'
+                        }`}
                     />
                   </div>
                 </div>
@@ -438,16 +435,15 @@ export default function SignupPage() {
                 )}
               </div>
               <div className="relative">
-                <Input 
-                  id="passwordConfirmation" 
-                  type={showPasswordConfirm ? "text" : "password"} 
+                <Input
+                  id="passwordConfirmation"
+                  type={showPasswordConfirm ? "text" : "password"}
                   placeholder="Re-type your password"
                   value={passwordConfirmation}
                   maxLength={VALIDATION_LIMITS.PASSWORD.MAX}
                   onChange={(e) => setPasswordConfirmation(e.target.value)}
-                  className={`pr-10 h-10 ${
-                    passwordConfirmation && !passwordsMatch ? 'border-red-300 focus-visible:ring-red-400' : ''
-                  }`}
+                  className={`pr-10 h-10 ${passwordConfirmation && !passwordsMatch ? 'border-red-300 focus-visible:ring-red-400' : ''
+                    }`}
                 />
                 <button
                   type="button"
@@ -478,10 +474,10 @@ export default function SignupPage() {
                   {organisationName.length}/{VALIDATION_LIMITS.ORGANISATION_NAME.MAX}
                 </span>
               </div>
-              <Input 
-                id="organisationName" 
-                type="text" 
-                placeholder="e.g. Acme Corporation" 
+              <Input
+                id="organisationName"
+                type="text"
+                placeholder="e.g. Acme Corporation"
                 value={organisationName}
                 minLength={VALIDATION_LIMITS.ORGANISATION_NAME.MIN}
                 maxLength={VALIDATION_LIMITS.ORGANISATION_NAME.MAX}
@@ -507,18 +503,18 @@ export default function SignupPage() {
                 </span>
               </div>
               <div className="relative">
-                <Input 
-                  id="physicalAddress" 
-                  type="text" 
-                  placeholder="e.g. 100 Innovation Way, Suite 400" 
+                <Input
+                  id="physicalAddress"
+                  type="text"
+                  placeholder="e.g. 100 Innovation Way, Suite 400"
                   value={physicalAddress}
                   maxLength={VALIDATION_LIMITS.PHYSICAL_ADDRESS.MAX}
                   onChange={(e) => setPhysicalAddress(e.target.value)}
                   className={`pr-10 h-10 ${physicalAddress && addressValidation && !addressValidation.isValid ? 'border-red-300 focus-visible:ring-red-400' : ''}`}
                 />
                 {physicalAddress && (
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setPhysicalAddress("")}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                   >
@@ -551,12 +547,12 @@ export default function SignupPage() {
 
             {/* Terms Acceptance */}
             <div className="flex items-start gap-3 py-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
-              <input 
-                type="checkbox" 
+              <input
+                type="checkbox"
                 id="terms"
                 checked={termsAccepted}
                 onChange={(e) => setTermsAccepted(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600 cursor-pointer" 
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600 cursor-pointer"
               />
               <Label htmlFor="terms" className="text-xs font-normal text-slate-700 leading-snug cursor-pointer">
                 I have read and accept the <Link href="#" className="text-blue-600 font-medium hover:underline">Terms of Use</Link> and <Link href="#" className="text-blue-600 font-medium hover:underline">AI Processing Terms</Link>. <span className="text-red-500">*</span>
@@ -564,9 +560,9 @@ export default function SignupPage() {
             </div>
 
             <div className="space-y-2 pt-1">
-              <Button 
-                type="submit" 
-                className="w-full h-11 text-[15px] font-semibold bg-[#31327c] hover:bg-[#262762] text-white shadow-sm" 
+              <Button
+                type="submit"
+                className="w-full h-11 text-[15px] font-semibold bg-[#31327c] hover:bg-[#262762] text-white shadow-sm"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -579,8 +575,8 @@ export default function SignupPage() {
                 )}
               </Button>
 
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setStep(1)}
                 className="w-full py-2 text-xs font-medium text-slate-600 hover:text-slate-900 transition-colors text-center"
               >
