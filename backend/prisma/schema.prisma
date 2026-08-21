@@ -62,6 +62,12 @@ enum ActionItemStatus {
   OVERDUE
 }
 
+enum MeetingLocationType {
+  IN_PERSON
+  VIRTUAL
+  HYBRID
+}
+
 enum NotificationType {
   MEETING_CREATED
   MEETING_UPDATED
@@ -220,16 +226,23 @@ model Organisation {
 }
 
 model MeetingLocation {
-  id             String   @id @default(uuid())
+  id             String              @id @default(uuid())
   organisationId String
   name           String
-  address        String
-  timeZone       String
-  isDefault      Boolean  @default(false)
-  createdAt      DateTime @default(now())
+  type           MeetingLocationType @default(IN_PERSON)
+  address        String?
+  meetingUrl     String?
+  description    String?
+  timeZone       String?
+  isDefault      Boolean             @default(false)
+  isActive       Boolean             @default(true)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @default(now()) @updatedAt
 
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  meetings     Meeting[]
 
+  @@unique([organisationId, name])
   @@index([organisationId])
   @@map("meeting_locations")
 }
@@ -278,6 +291,7 @@ model Meeting {
   endTime          String /// "HH:MM"
   timeZone         String? /// IANA timezone, null means legacy floating time
   location         String
+  locationId       String?
   videoLink        String?
   isRemote         Boolean       @default(false)
   administrator    String? /// Free-text until People module exists
@@ -292,6 +306,7 @@ model Meeting {
 
   organisation   Organisation      @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   committee      Committee?        @relation(fields: [committeeId], references: [id], onDelete: SetNull)
+  locationRel    MeetingLocation?  @relation(fields: [locationId], references: [id], onDelete: SetNull)
   agendaSections AgendaSection[]
   minutes        Minutes?
   documents      Document[]

@@ -33,6 +33,10 @@ export class UpdateMeetingDto {
   location?: string;
 
   @IsOptional()
+  @IsUUID()
+  locationId?: string;
+
+  @IsOptional()
   @IsString()
   videoLink?: string;
 

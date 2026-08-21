@@ -29,6 +29,13 @@ import {
   Calendar,
   FileText,
   CheckSquare,
+  MapPin,
+  Video,
+  ExternalLink,
+  Pencil,
+  Trash2,
+  Building2,
+  Power,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { 
@@ -38,11 +45,22 @@ import {
   useGetSessions,
   useRevokeSession,
   useRevokeAllOtherSessions,
+  useGetLocations,
+  useCreateLocation,
+  useUpdateLocation,
+  useDeleteLocation,
 } from "@/hooks/use-settings";
 import {
   useGetNotificationPreferences,
   useUpdateNotificationPreferences,
 } from "@/hooks/use-notifications";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
@@ -86,6 +104,115 @@ export default function SettingsPage() {
 
   const { data: notifPrefs, isLoading: isLoadingNotifPrefs } = useGetNotificationPreferences();
   const updateNotifPrefsMutation = useUpdateNotificationPreferences();
+
+  // Locations Data & State
+  const { data: locations = [], isLoading: isLoadingLocations } = useGetLocations(orgId);
+  const createLocationMutation = useCreateLocation(orgId);
+  const updateLocationMutation = useUpdateLocation(orgId);
+  const deleteLocationMutation = useDeleteLocation(orgId);
+
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [editingLocation, setEditingLocation] = useState<any>(null);
+  const [locName, setLocName] = useState("");
+  const [locType, setLocType] = useState<"IN_PERSON" | "VIRTUAL" | "HYBRID">("IN_PERSON");
+  const [locAddress, setLocAddress] = useState("");
+  const [locMeetingUrl, setLocMeetingUrl] = useState("");
+  const [locDescription, setLocDescription] = useState("");
+  const [locIsDefault, setLocIsDefault] = useState(false);
+  const [locIsActive, setLocIsActive] = useState(true);
+
+  const handleOpenNewLocation = () => {
+    setEditingLocation(null);
+    setLocName("");
+    setLocType("IN_PERSON");
+    setLocAddress("");
+    setLocMeetingUrl("");
+    setLocDescription("");
+    setLocIsDefault(false);
+    setLocIsActive(true);
+    setIsLocationModalOpen(true);
+  };
+
+  const handleOpenEditLocation = (loc: any) => {
+    setEditingLocation(loc);
+    setLocName(loc.name || "");
+    setLocType(loc.type || "IN_PERSON");
+    setLocAddress(loc.address || "");
+    setLocMeetingUrl(loc.meetingUrl || "");
+    setLocDescription(loc.description || "");
+    setLocIsDefault(Boolean(loc.isDefault));
+    setLocIsActive(Boolean(loc.isActive));
+    setIsLocationModalOpen(true);
+  };
+
+  const handleSaveLocation = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!locName.trim()) {
+      toast.error("Location name is required");
+      return;
+    }
+
+    const payload = {
+      name: locName.trim(),
+      type: locType,
+      address: locType !== "VIRTUAL" ? locAddress.trim() : undefined,
+      meetingUrl: locType !== "IN_PERSON" ? locMeetingUrl.trim() : undefined,
+      description: locDescription.trim() || undefined,
+      isDefault: locIsDefault,
+      isActive: locIsActive,
+    };
+
+    if (editingLocation) {
+      updateLocationMutation.mutate({
+        locationId: editingLocation.id,
+        data: payload,
+      }, {
+        onSuccess: () => {
+          toast.success("Location updated successfully");
+          setIsLocationModalOpen(false);
+        },
+        onError: (err: any) => {
+          toast.error(err?.response?.data?.message || "Failed to update location");
+        }
+      });
+    } else {
+      createLocationMutation.mutate(payload, {
+        onSuccess: () => {
+          toast.success("Location created successfully");
+          setIsLocationModalOpen(false);
+        },
+        onError: (err: any) => {
+          toast.error(err?.response?.data?.message || "Failed to create location");
+        }
+      });
+    }
+  };
+
+  const handleToggleLocationActive = (loc: any) => {
+    updateLocationMutation.mutate({
+      locationId: loc.id,
+      data: { isActive: !loc.isActive },
+    }, {
+      onSuccess: () => {
+        toast.success(`Location ${!loc.isActive ? 'activated' : 'deactivated'}`);
+      },
+      onError: (err: any) => {
+        toast.error(err?.response?.data?.message || "Failed to update status");
+      }
+    });
+  };
+
+  const handleDeleteLocation = (locId: string) => {
+    if (!confirm("Are you sure you want to delete this location?")) return;
+    deleteLocationMutation.mutate(locId, {
+      onSuccess: () => {
+        toast.success("Location deleted successfully");
+      },
+      onError: (err: any) => {
+        toast.error(err?.response?.data?.message || "Cannot delete location. Please deactivate it instead.");
+      }
+    });
+  };
 
   useEffect(() => {
     if (orgData) {
@@ -838,7 +965,273 @@ export default function SettingsPage() {
             )}
           </div>
         </TabsContent>
+
+        {/* Meeting Locations */}
+        <TabsContent value="locations" className="mt-0">
+          <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
+            <div className="p-6 border-b bg-slate-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h3 className="font-semibold text-slate-800 flex items-center gap-2">
+                  <MapPin className="w-5 h-5 text-blue-600" />
+                  Saved Meeting Locations
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Manage physical, virtual, and hybrid locations available when scheduling meetings.
+                </p>
+              </div>
+              <Button
+                onClick={handleOpenNewLocation}
+                className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                size="sm"
+              >
+                <Plus className="w-4 h-4 mr-1.5" />
+                Add Location
+              </Button>
+            </div>
+
+            {isLoadingLocations ? (
+              <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>
+            ) : locations.length === 0 ? (
+              <div className="p-12 text-center text-slate-500 space-y-3">
+                <Building2 className="w-10 h-10 text-slate-300 mx-auto" />
+                <p className="font-medium text-slate-700">No meeting locations found</p>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  Add reusable board rooms, physical offices, or virtual meeting links to speed up meeting creation.
+                </p>
+                <Button
+                  onClick={handleOpenNewLocation}
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 text-xs"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  Create First Location
+                </Button>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {locations.map((loc: any) => (
+                  <div key={loc.id} className="p-4 sm:p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-slate-50/50 transition-colors">
+                    <div className="space-y-1.5 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold text-slate-800 text-sm truncate">{loc.name}</span>
+                        
+                        {/* Type Badge */}
+                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
+                          loc.type === 'VIRTUAL' 
+                            ? 'bg-purple-50 text-purple-700 border-purple-200' 
+                            : loc.type === 'HYBRID' 
+                            ? 'bg-blue-50 text-blue-700 border-blue-200' 
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        }`}>
+                          {loc.type === 'VIRTUAL' ? 'Virtual' : loc.type === 'HYBRID' ? 'Hybrid' : 'In-person'}
+                        </span>
+
+                        {/* Status Badge */}
+                        {loc.isActive ? (
+                          <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium px-1.5 py-0.5 rounded">
+                            Active
+                          </span>
+                        ) : (
+                          <span className="text-[10px] bg-slate-100 text-slate-500 border border-slate-200 font-medium px-1.5 py-0.5 rounded">
+                            Inactive
+                          </span>
+                        )}
+
+                        {/* Default Badge */}
+                        {loc.isDefault && (
+                          <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 font-medium px-1.5 py-0.5 rounded">
+                            Default
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Details: Address / Virtual Link */}
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                        {loc.address && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                            {loc.address}
+                          </span>
+                        )}
+                        {loc.meetingUrl && (
+                          <a
+                            href={loc.meetingUrl.startsWith('http') ? loc.meetingUrl : `https://${loc.meetingUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-blue-600 hover:underline"
+                          >
+                            <Video className="w-3.5 h-3.5 text-blue-500" />
+                            Meeting Link
+                            <ExternalLink className="w-3 h-3 ml-0.5" />
+                          </a>
+                        )}
+                      </div>
+
+                      {loc.description && (
+                        <p className="text-xs text-slate-400 line-clamp-1">{loc.description}</p>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleToggleLocationActive(loc)}
+                        disabled={updateLocationMutation.isPending}
+                        className={`text-xs h-8 px-2.5 ${loc.isActive ? 'text-amber-600 hover:bg-amber-50 hover:text-amber-700' : 'text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700'}`}
+                      >
+                        <Power className="w-3.5 h-3.5 mr-1" />
+                        {loc.isActive ? 'Deactivate' : 'Activate'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenEditLocation(loc)}
+                        className="text-xs h-8 px-2.5 text-slate-700"
+                      >
+                        <Pencil className="w-3.5 h-3.5 mr-1 text-slate-500" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteLocation(loc.id)}
+                        disabled={deleteLocationMutation.isPending}
+                        className="text-xs h-8 px-2 text-red-500 hover:bg-red-50 hover:text-red-700"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </TabsContent>
       </Tabs>
+
+      {/* Add / Edit Location Dialog */}
+      <Dialog open={isLocationModalOpen} onOpenChange={setIsLocationModalOpen}>
+        <DialogContent className="max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-slate-800">
+              {editingLocation ? 'Edit Meeting Location' : 'Add New Meeting Location'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveLocation} className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-700">Location Name *</label>
+              <Input
+                placeholder="e.g. Head Office – Board Room"
+                value={locName}
+                onChange={(e) => setLocName(e.target.value)}
+                required
+                className="h-10"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-700">Location Type *</label>
+              <Select value={locType} onValueChange={(val: any) => setLocType(val)}>
+                <SelectTrigger className="w-full h-10 border-slate-200 text-slate-700 bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="w-full min-w-[240px]">
+                  <SelectItem value="IN_PERSON">In-person (Physical Address)</SelectItem>
+                  <SelectItem value="VIRTUAL">Virtual (Video Link / Teams / Zoom)</SelectItem>
+                  <SelectItem value="HYBRID">Hybrid (Physical Room + Video Link)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {locType !== 'VIRTUAL' && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-700">
+                  Physical Address / Room Details {locType === 'IN_PERSON' ? '*' : ''}
+                </label>
+                <Input
+                  placeholder="e.g. 4th Floor, Sector 62, Noida, India"
+                  value={locAddress}
+                  onChange={(e) => setLocAddress(e.target.value)}
+                  required={locType === 'IN_PERSON'}
+                  className="h-10"
+                />
+              </div>
+            )}
+
+            {locType !== 'IN_PERSON' && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-700">
+                  Meeting Video URL {locType === 'VIRTUAL' ? '*' : ''}
+                </label>
+                <Input
+                  placeholder="e.g. https://teams.microsoft.com/l/meetup-join/..."
+                  value={locMeetingUrl}
+                  onChange={(e) => setLocMeetingUrl(e.target.value)}
+                  required={locType === 'VIRTUAL'}
+                  className="h-10"
+                />
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-slate-700">Description (Optional)</label>
+              <Input
+                placeholder="e.g. Capacity 14 seats, projector and AV enabled"
+                value={locDescription}
+                onChange={(e) => setLocDescription(e.target.value)}
+                className="h-10"
+              />
+            </div>
+
+            <div className="pt-2 space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={locIsDefault}
+                  onChange={(e) => setLocIsDefault(e.target.checked)}
+                  className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                />
+                Set as default location for new meetings
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={locIsActive}
+                  onChange={(e) => setLocIsActive(e.target.checked)}
+                  className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                />
+                Active (available for new meetings)
+              </label>
+            </div>
+
+            <DialogFooter className="pt-4 border-t flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsLocationModalOpen(false)}
+                className="text-xs h-9"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={createLocationMutation.isPending || updateLocationMutation.isPending}
+                className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-9"
+              >
+                {createLocationMutation.isPending || updateLocationMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+                ) : null}
+                {editingLocation ? 'Save Changes' : 'Create Location'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

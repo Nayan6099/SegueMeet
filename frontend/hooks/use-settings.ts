@@ -80,3 +80,61 @@ export function useRevokeAllOtherSessions() {
   });
 }
 
+// Fetch meeting locations
+export function useGetLocations(organisationId: string | undefined, activeOnly?: boolean) {
+  return useQuery({
+    queryKey: ["locations", organisationId, activeOnly],
+    queryFn: async () => {
+      if (!organisationId) return [];
+      const res = await api.get(`/organisations/${organisationId}/locations`, {
+        params: activeOnly ? { activeOnly: true } : {},
+      });
+      return res.data;
+    },
+    enabled: !!organisationId,
+  });
+}
+
+// Create meeting location
+export function useCreateLocation(organisationId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: any) => {
+      const res = await api.post(`/organisations/${organisationId}/locations`, data);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["locations", organisationId] });
+    },
+  });
+}
+
+// Update meeting location
+export function useUpdateLocation(organisationId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ locationId, data }: { locationId: string; data: any }) => {
+      const res = await api.patch(`/organisations/${organisationId}/locations/${locationId}`, data);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["locations", organisationId] });
+    },
+  });
+}
+
+// Delete meeting location
+export function useDeleteLocation(organisationId: string | undefined) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (locationId: string) => {
+      const res = await api.delete(`/organisations/${organisationId}/locations/${locationId}`);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["locations", organisationId] });
+    },
+  });
+}
+
+

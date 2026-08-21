@@ -45,6 +45,10 @@ export class CreateMeetingDto {
   location: string;
 
   @IsOptional()
+  @IsUUID()
+  locationId?: string;
+
+  @IsOptional()
   @IsString()
   videoLink?: string;
 

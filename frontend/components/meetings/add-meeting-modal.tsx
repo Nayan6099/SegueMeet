@@ -128,8 +128,9 @@ export function AddMeetingModal({ organisationId, committeeId, trigger }: AddMee
 
   const createMeetingMutation = useMutation({
     mutationFn: async () => {
-      const selectedLoc = locations.find((l: any) => l.id === locationId) || locations.find((l: any) => l.isDefault) || locations[0];
-      const locString = selectedLoc ? `${selectedLoc.name} - ${selectedLoc.address}` : "TBD";
+      const activeLocations = locations.filter((l: any) => l.isActive !== false);
+      const selectedLoc = activeLocations.find((l: any) => l.id === locationId) || activeLocations.find((l: any) => l.isDefault) || activeLocations[0];
+      const locString = selectedLoc ? (selectedLoc.address ? `${selectedLoc.name} – ${selectedLoc.address}` : selectedLoc.name) : "TBD";
 
       await api.post(`/meetings`, {
         organisationId,
@@ -139,7 +140,8 @@ export function AddMeetingModal({ organisationId, committeeId, trigger }: AddMee
         endTime: formatTime24(endHour, endMin, endAmPm),
         timeZone,
         location: locString,
-        videoLink,
+        locationId: selectedLoc?.id || undefined,
+        videoLink: videoLink || selectedLoc?.meetingUrl || undefined,
         attendeeIds,
         committeeId,
         committeeVisible: committeeId ? true : false,
@@ -159,7 +161,8 @@ export function AddMeetingModal({ organisationId, committeeId, trigger }: AddMee
     }
   });
 
-  const selectedLocation = locations.find((l: any) => l.id === locationId) || locations.find((l: any) => l.isDefault) || locations[0];
+  const activeLocations = locations.filter((l: any) => l.isActive !== false);
+  const selectedLocation = activeLocations.find((l: any) => l.id === locationId) || activeLocations.find((l: any) => l.isDefault) || activeLocations[0];
 
   return (
     <>
@@ -273,18 +276,21 @@ export function AddMeetingModal({ organisationId, committeeId, trigger }: AddMee
                   <SelectValue placeholder="Select Location" />
                 </SelectTrigger>
                 <SelectContent>
-                  {locations.map((loc: any) => (
+                  {activeLocations.map((loc: any) => (
                     <SelectItem key={loc.id} value={loc.id}>
-                      {loc.name} {loc.isDefault ? "(default)" : ""}
+                      {loc.name} {loc.isDefault ? "(default)" : ""} {loc.type ? `[${loc.type.toLowerCase()}]` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
               {selectedLocation && (
-                <div className="text-sm text-slate-600 mt-2">
-                  <p>{selectedLocation.address}</p>
-                  <p>Time zone: {selectedLocation.timeZone}</p>
+                <div className="text-xs text-slate-600 mt-2 space-y-0.5 bg-slate-50 p-2.5 rounded border border-slate-100">
+                  <div className="font-semibold text-slate-700">{selectedLocation.name}</div>
+                  {selectedLocation.address && <p className="text-slate-500">{selectedLocation.address}</p>}
+                  {selectedLocation.meetingUrl && (
+                    <p className="text-blue-600 truncate">{selectedLocation.meetingUrl}</p>
+                  )}
                 </div>
               )}
 
