@@ -138,18 +138,18 @@ export default function BetweenMeetingsPage() {
   }, [resolutions, search, typeFilter, outcomeFilter, statusFilter]);
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8">
+    <div className="p-3 sm:p-6 md:p-8 max-w-6xl mx-auto space-y-6 md:space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold flex items-baseline gap-2 text-slate-800">
+          <h1 className="text-xl font-semibold flex flex-wrap items-baseline gap-2 text-slate-800">
             Between Meetings
-            <span className="text-sm font-normal text-muted-foreground ml-2 hidden sm:inline-block">
+            <span className="text-sm font-normal text-muted-foreground hidden sm:inline-block">
               Approvals and Reports for when there isn't a meeting
             </span>
           </h1>
         </div>
-        <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -157,7 +157,7 @@ export default function BetweenMeetingsPage() {
               placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 h-9 bg-white border-slate-200 text-sm focus-visible:ring-blue-500"
+              className="pl-9 h-9 bg-white border-slate-200 text-sm focus-visible:ring-blue-500 w-full"
             />
             {search && (
               <button
@@ -170,7 +170,7 @@ export default function BetweenMeetingsPage() {
           </div>
           <Button 
             onClick={() => setIsAddOpen(true)}
-            className="w-full sm:w-auto bg-[#1e1b4b] hover:bg-[#2e2b5b] text-white rounded-md px-6 h-9"
+            className="w-full sm:w-auto bg-[#1e1b4b] hover:bg-[#2e2b5b] text-white rounded-md px-6 h-9 shrink-0"
           >
             + Add
           </Button>

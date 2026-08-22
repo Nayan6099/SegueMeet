@@ -64,7 +64,7 @@ export default function PeoplePage() {
   );
 
   const renderEmptyState = (message: string) => (
-    <div className="border rounded-xl bg-white p-24 flex flex-col items-center justify-center text-center shadow-sm">
+    <div className="border rounded-xl bg-white p-8 sm:p-16 md:p-24 flex flex-col items-center justify-center text-center shadow-sm">
       <div className="bg-gray-50 p-4 rounded-2xl mb-4">
         <User className="w-8 h-8 text-slate-400" />
       </div>
@@ -76,45 +76,45 @@ export default function PeoplePage() {
     return (
       <div className="border rounded-xl bg-white shadow-sm w-full">
         <div className="overflow-x-auto w-full">
-          <table className="w-full text-sm text-left min-w-[600px]">
+          <table className="w-full text-sm text-left min-w-[500px] sm:min-w-[600px]">
             <thead className="bg-gray-50 text-slate-500 border-b">
               <tr>
-                <th className="px-6 py-4 font-medium">Name</th>
-                <th className="px-6 py-4 font-medium">Designation</th>
-                <th className="px-6 py-4 font-medium">Roles</th>
-                <th className="px-6 py-4 font-medium">Email</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium text-right">Actions</th>
+                <th className="px-3 sm:px-6 py-3 font-medium">Name</th>
+                <th className="px-3 sm:px-6 py-3 font-medium">Designation</th>
+                <th className="px-3 sm:px-6 py-3 font-medium">Roles</th>
+                <th className="px-3 sm:px-6 py-3 font-medium">Email</th>
+                <th className="px-3 sm:px-6 py-3 font-medium">Status</th>
+                <th className="px-3 sm:px-6 py-3 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {people.map((person: any) => (
                 <tr key={person.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-slate-800 flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-slate-800 flex items-center gap-2 sm:gap-3">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs shrink-0">
                       {person.user.name.charAt(0).toUpperCase()}
                     </div>
-                    {person.user.name}
+                    <span className="truncate max-w-[140px] sm:max-w-none">{person.user.name}</span>
                   </td>
-                  <td className="px-6 py-4 text-slate-600">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-600">
                     {person.designation || <span className="text-slate-400 italic">None</span>}
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-wrap gap-2">
-                      <span className="px-2 py-1 bg-gray-100 text-slate-600 rounded-md text-xs font-medium">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4">
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="px-2 py-0.5 bg-gray-100 text-slate-600 rounded-md text-xs font-medium whitespace-nowrap">
                         {person.role.replace('_', ' ')}
                       </span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-slate-500">{person.user.email}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center w-fit gap-1.5 bg-green-100 text-green-700`}>
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-500 truncate max-w-[160px] sm:max-w-none">{person.user.email}</td>
+                  <td className="px-3 sm:px-6 py-3 sm:py-4">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center w-fit gap-1 bg-green-100 text-green-700 whitespace-nowrap`}>
                       <CheckCircle2 className="w-3 h-3" />
                       Active
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <Button variant="ghost" size="sm" onClick={() => setEditingMember(person)} className="text-slate-500 hover:text-blue-600">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 text-right">
+                    <Button variant="ghost" size="sm" onClick={() => setEditingMember(person)} className="text-slate-500 hover:text-blue-600 h-8 px-2">
                       Edit
                     </Button>
                   </td>
@@ -128,13 +128,13 @@ export default function PeoplePage() {
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8">
+    <div className="p-3 sm:p-6 md:p-8 max-w-6xl mx-auto space-y-6 md:space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold flex items-baseline gap-2 text-slate-800">
+          <h1 className="text-xl font-semibold flex flex-wrap items-baseline gap-2 text-slate-800">
             People 
-            <span className="text-sm font-normal text-muted-foreground ml-2 hidden sm:inline-block">
+            <span className="text-sm font-normal text-muted-foreground hidden sm:inline-block">
               Manage and view your Board and Team
             </span>
           </h1>
@@ -142,7 +142,7 @@ export default function PeoplePage() {
         {activeTab === "interests" ? (
           <Button 
             onClick={() => setIsAddInterestOpen(true)}
-            className="bg-[#2d1b54] hover:bg-[#1a0f35] text-white rounded-md px-6 shadow-sm flex items-center gap-2 font-medium h-9"
+            className="bg-[#2d1b54] hover:bg-[#1a0f35] text-white rounded-md px-4 sm:px-6 shadow-sm flex items-center gap-2 font-medium h-9 shrink-0"
           >
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 5v14M5 12h14" />
@@ -153,7 +153,7 @@ export default function PeoplePage() {
           canManagePeople && (
             <Button 
               onClick={() => setIsAddPersonOpen(true)}
-              className="bg-slate-300 hover:bg-slate-400 text-slate-700 rounded-md px-6 shadow-sm flex items-center gap-2 font-medium h-9"
+              className="bg-slate-300 hover:bg-slate-400 text-slate-700 rounded-md px-4 sm:px-6 shadow-sm flex items-center gap-2 font-medium h-9 shrink-0"
             >
               <User className="w-4 h-4" />
               Add Person
@@ -202,36 +202,36 @@ export default function PeoplePage() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="flex items-center justify-between border-b pb-0 mb-6">
-          <TabsList className="bg-transparent h-auto p-0 rounded-none border-none space-x-6">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between border-b pb-0 mb-6 gap-3">
+          <TabsList className="bg-transparent h-auto p-0 rounded-none border-none space-x-4 sm:space-x-6 overflow-x-auto flex-nowrap justify-start">
             <TabsTrigger 
               value="people" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-semibold text-slate-700"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-semibold text-slate-700 whitespace-nowrap"
             >
               People List
             </TabsTrigger>
             <TabsTrigger 
-              value="profile"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-muted-foreground"
+              value="profile" 
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-muted-foreground whitespace-nowrap"
             >
               Board Profile
             </TabsTrigger>
             <TabsTrigger 
-              value="changes"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-muted-foreground"
+              value="changes" 
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-muted-foreground whitespace-nowrap"
             >
               Changes Log
             </TabsTrigger>
             <TabsTrigger 
-              value="interests"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-muted-foreground"
+              value="interests" 
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-muted-foreground whitespace-nowrap"
             >
               Interests Register
             </TabsTrigger>
           </TabsList>
           
-          <Link href="#" onClick={(e) => { e.preventDefault(); setIsAccessLevelsOpen(true); }} className="flex items-center text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors">
-            Access Levels <ExternalLink className="ml-1.5 w-4 h-4" />
+          <Link href="#" onClick={(e) => { e.preventDefault(); setIsAccessLevelsOpen(true); }} className="flex items-center text-xs sm:text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors pb-2 sm:pb-0 shrink-0">
+            Access Levels <ExternalLink className="ml-1.5 w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </Link>
         </div>
 

@@ -64,12 +64,12 @@ export default function MyHomePage() {
   const myActions = actions.filter((a: any) => a.assigneeId === user?.id && a.status !== "COMPLETED");
 
   return (
-    <div className="p-4 md:p-8 w-full max-w-6xl mx-auto space-y-8 md:space-y-12">
+    <div className="p-3 sm:p-6 md:p-8 w-full max-w-6xl mx-auto space-y-6 md:space-y-12">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-semibold flex items-baseline gap-2 text-slate-800">
+        <h1 className="text-xl font-semibold flex flex-wrap items-baseline gap-2 text-slate-800">
           My SegueMeet Dashboard 
-          <span className="text-sm font-normal text-muted-foreground ml-2">
+          <span className="text-sm font-normal text-muted-foreground hidden sm:inline-block">
             All meetings and key activities across all boards and committees
           </span>
         </h1>
@@ -77,11 +77,11 @@ export default function MyHomePage() {
 
       {/* Top Section - Meetings */}
       <Tabs defaultValue="upcoming" className="w-full">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-0 mb-6 gap-4 sm:gap-0">
-          <TabsList className="bg-transparent h-auto p-0 rounded-none border-none flex-nowrap overflow-x-auto w-full justify-start space-x-4 md:space-x-6 scrollbar-hide">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-0 mb-6 gap-3 sm:gap-0">
+          <TabsList className="bg-transparent h-auto p-0 rounded-none border-none flex-nowrap overflow-x-auto w-full sm:w-auto justify-start space-x-4 md:space-x-6 no-scrollbar">
             <TabsTrigger 
               value="upcoming" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-slate-700"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-slate-700 whitespace-nowrap"
             >
               My Upcoming Meetings
               <Badge variant="secondary" className="ml-2 bg-purple-100 text-purple-700 hover:bg-purple-100 rounded-full px-2">
@@ -90,7 +90,7 @@ export default function MyHomePage() {
             </TabsTrigger>
             <TabsTrigger 
               value="past"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-muted-foreground"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-muted-foreground whitespace-nowrap"
             >
               Past Meetings
             </TabsTrigger>

@@ -208,10 +208,10 @@ export default function MeetingOverviewPage({ params }: { params: Promise<{ meet
   const creatorName = members.find((m: any) => m.user.id === meeting.creatorId)?.user.name || meeting.administrator || "—";
 
   return (
-    <div className="max-w-5xl mx-auto p-8">
+    <div className="max-w-5xl mx-auto p-3 sm:p-6 md:p-8">
 
-      {/* Top right buttons */}
-      <div className="flex justify-end gap-2 mb-6">
+      {/* Top action toolbar */}
+      <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2 mb-6">
         <Button
           variant="outline"
           onClick={handleDownloadNotice}
@@ -276,11 +276,11 @@ export default function MeetingOverviewPage({ params }: { params: Promise<{ meet
       </div>
 
       {/* Header Row */}
-      <div className="flex justify-between items-start mb-12">
-        <h1 className="text-[32px] font-normal text-slate-800">{meeting.title}</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 md:mb-12">
+        <h1 className="text-2xl sm:text-[32px] font-normal text-slate-800 break-words">{meeting.title}</h1>
 
         {meeting.agendaStatus !== 'PUBLISHED' && (
-          <div className="flex flex-col items-center gap-1.5">
+          <div className="flex sm:flex-col items-center gap-2 sm:gap-1.5 shrink-0">
             <span className="text-[11px] font-semibold text-slate-800 uppercase tracking-wide">
               {meeting.agendaSections?.length > 0 ? 'Edit Agenda' : 'No Agenda'}
             </span>
@@ -309,29 +309,30 @@ export default function MeetingOverviewPage({ params }: { params: Promise<{ meet
       />
 
       {/* Main Details Grid */}
-      <div className="grid grid-cols-[240px_1fr] gap-y-8">
+      <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] lg:grid-cols-[240px_1fr] gap-y-4 md:gap-y-8 gap-x-4">
 
         {/* Date */}
         <div className="text-sm font-semibold text-slate-700 pt-1">Date:</div>
-        <div className="text-sm text-slate-800 flex items-center gap-3">
-          {dateStr} <span className="text-slate-400 text-xs">({displayTz})</span>
-          <div className="flex items-center gap-2">
+        <div className="text-sm text-slate-800 flex flex-wrap items-center gap-2 sm:gap-3">
+          <span>{dateStr}</span>
+          <span className="text-slate-400 text-xs">({displayTz})</span>
+          <div className="flex items-center gap-2 ml-auto sm:ml-0">
             <button
               onClick={() => setShowMyTime(false)}
-              className={`text-sm font-medium transition-colors ${!showMyTime ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`text-xs sm:text-sm font-medium transition-colors ${!showMyTime ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
             >
               Meeting Time
             </button>
             <button
               onClick={() => setShowMyTime(v => !v)}
               aria-label="Toggle timezone"
-              className={`w-8 h-4 rounded-full relative transition-colors ${showMyTime ? 'bg-blue-500' : 'bg-slate-300'}`}
+              className={`w-8 h-4 rounded-full relative transition-colors shrink-0 ${showMyTime ? 'bg-blue-500' : 'bg-slate-300'}`}
             >
               <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-[1px] transition-all ${showMyTime ? 'right-[1px]' : 'left-[1px]'}`} />
             </button>
             <button
               onClick={() => setShowMyTime(true)}
-              className={`text-sm font-medium transition-colors ${showMyTime ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`text-xs sm:text-sm font-medium transition-colors ${showMyTime ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
             >
               My Time
             </button>
@@ -341,11 +342,11 @@ export default function MeetingOverviewPage({ params }: { params: Promise<{ meet
         {/* Time */}
         <div className="text-sm font-semibold text-slate-700 pt-1">Time:</div>
         <div className="text-sm text-slate-800">
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
             <span>{startTimeStr}</span>
             <span className="text-slate-400">-</span>
             <span>{endTimeStr}</span>
-            <span className="text-slate-500 ml-2">{diffHrs} hrs</span>
+            <span className="text-slate-500 ml-1">({diffHrs} hrs)</span>
           </div>
           <button
             onClick={handleAddToCalendar}
@@ -366,12 +367,12 @@ export default function MeetingOverviewPage({ params }: { params: Promise<{ meet
         <div className="text-sm font-semibold text-slate-700 pt-1">Video URL:</div>
         <div className="flex items-start">
           {isEditingVideo ? (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 w-full max-w-md">
               <input
                 type="url"
                 value={videoLinkInput}
                 onChange={(e) => setVideoLinkInput(e.target.value)}
-                className="border border-slate-200 rounded text-sm px-3 py-1.5 w-64 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                className="border border-slate-200 rounded text-sm px-3 py-1.5 w-full sm:w-64 focus:outline-none focus:ring-2 focus:ring-blue-300"
                 placeholder="https://zoom.us/j/..."
               />
               <Button
@@ -392,7 +393,7 @@ export default function MeetingOverviewPage({ params }: { params: Promise<{ meet
               </Button>
             </div>
           ) : (
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-3">
               {meeting.videoLink ? (
                 <a href={meeting.videoLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm px-4 py-2 rounded shadow-sm transition-colors">
                   Join Video Meeting
@@ -417,7 +418,7 @@ export default function MeetingOverviewPage({ params }: { params: Promise<{ meet
         <div className="text-sm font-semibold text-slate-700 pt-1 mt-2">Meeting Administrator:</div>
         <div className="mt-2">
           <select
-            className="border border-slate-200 rounded text-sm px-3 py-1.5 w-64 text-slate-700 bg-white outline-none focus:ring-2 focus:ring-blue-300"
+            className="border border-slate-200 rounded text-sm px-3 py-1.5 w-full sm:w-64 text-slate-700 bg-white outline-none focus:ring-2 focus:ring-blue-300"
             value={meeting.administrator || creatorName}
             onChange={(e) => updateAdminMutation.mutate(e.target.value)}
           >

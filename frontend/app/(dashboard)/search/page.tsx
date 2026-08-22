@@ -64,14 +64,14 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-8">
+    <div className="p-3 sm:p-6 md:p-8 max-w-5xl mx-auto space-y-6 md:space-y-8">
       {/* Header & Search Bar */}
       <div>
-        <h1 className="text-2xl font-semibold text-slate-800 mb-6">Global Search</h1>
+        <h1 className="text-xl sm:text-2xl font-semibold text-slate-800 mb-4 sm:mb-6">Global Search</h1>
         <div className="relative">
-          <SearchIcon className="absolute left-4 top-3.5 h-5 w-5 text-slate-400" />
+          <SearchIcon className="absolute left-3.5 top-3.5 h-5 w-5 text-slate-400" />
           <Input
-            className="pl-12 py-6 text-lg rounded-xl border-slate-300 shadow-sm focus-visible:ring-primary"
+            className="pl-11 py-5 sm:py-6 text-base sm:text-lg rounded-xl border-slate-300 shadow-sm focus-visible:ring-primary w-full"
             placeholder="Search meetings, documents, or people..."
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
@@ -84,34 +84,34 @@ export default function SearchPage() {
       </div>
 
       {!debouncedQuery.trim() ? (
-        <div className="py-24 text-center text-slate-500">
-          <SearchIcon className="w-12 h-12 mx-auto mb-4 text-slate-300" />
-          <p className="text-lg">Type something to start searching</p>
+        <div className="py-16 sm:py-24 text-center text-slate-500">
+          <SearchIcon className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-4 text-slate-300" />
+          <p className="text-base sm:text-lg">Type something to start searching</p>
         </div>
       ) : (
         <Tabs defaultValue="all" className="w-full">
-          <TabsList className="bg-transparent h-auto p-0 rounded-none border-b border-slate-200 w-full justify-start space-x-8 mb-6">
+          <TabsList className="bg-transparent h-auto p-0 rounded-none border-b border-slate-200 w-full justify-start space-x-4 sm:space-x-8 mb-6 overflow-x-auto flex-nowrap no-scrollbar">
             <TabsTrigger 
               value="all" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-3 font-medium text-slate-500"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 sm:py-3 font-medium text-slate-500 whitespace-nowrap text-xs sm:text-sm"
             >
               All Results ({totalResults})
             </TabsTrigger>
             <TabsTrigger 
               value="meetings" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-3 font-medium text-slate-500"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 sm:py-3 font-medium text-slate-500 whitespace-nowrap text-xs sm:text-sm"
             >
               Meetings ({meetings.length})
             </TabsTrigger>
             <TabsTrigger 
               value="documents" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-3 font-medium text-slate-500"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 sm:py-3 font-medium text-slate-500 whitespace-nowrap text-xs sm:text-sm"
             >
               Documents ({documents.length})
             </TabsTrigger>
             <TabsTrigger 
               value="people" 
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-3 font-medium text-slate-500"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 sm:py-3 font-medium text-slate-500 whitespace-nowrap text-xs sm:text-sm"
             >
               People ({people.length})
             </TabsTrigger>
@@ -119,23 +119,23 @@ export default function SearchPage() {
 
           <TabsContent value="all" className="space-y-8 mt-0">
             {totalResults === 0 && !isLoading && (
-              <p className="text-center py-12 text-slate-500">No results found for "{debouncedQuery}"</p>
+              <p className="text-center py-12 text-slate-500 text-sm">No results found for "{debouncedQuery}"</p>
             )}
             
             {meetings.length > 0 && (
               <div>
-                <h3 className="text-sm font-semibold text-slate-800 mb-4 uppercase tracking-wider">Meetings</h3>
+                <h3 className="text-xs sm:text-sm font-semibold text-slate-800 mb-4 uppercase tracking-wider">Meetings</h3>
                 <div className="grid gap-4">
                   {meetings.map((m: any) => (
                     <Link key={m.id} href={`/meetings/${m.id}`}>
-                      <div className="p-4 border rounded-xl hover:border-primary transition-colors bg-white flex items-start gap-4 shadow-sm group">
-                        <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-100 transition-colors">
+                      <div className="p-3 sm:p-4 border rounded-xl hover:border-primary transition-colors bg-white flex items-start gap-3 sm:gap-4 shadow-sm group">
+                        <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-100 transition-colors shrink-0">
                           <Calendar className="w-5 h-5" />
                         </div>
-                        <div>
-                          <h4 className="font-semibold text-slate-800">{m.title}</h4>
-                          <p className="text-sm text-slate-500 mt-1">{new Date(m.scheduledStartDate || m.date).toLocaleString()} • {m.location || 'N/A'}</p>
-                          {m.notes && <p className="text-sm text-slate-600 mt-2 line-clamp-2">{m.notes}</p>}
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-semibold text-slate-800 truncate">{m.title}</h4>
+                          <p className="text-xs sm:text-sm text-slate-500 mt-1 truncate">{new Date(m.scheduledStartDate || m.date).toLocaleString()} • {m.location || 'N/A'}</p>
+                          {m.notes && <p className="text-xs sm:text-sm text-slate-600 mt-2 line-clamp-2">{m.notes}</p>}
                         </div>
                       </div>
                     </Link>

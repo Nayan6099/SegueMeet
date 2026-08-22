@@ -86,9 +86,9 @@ export function InterestsRegisterTab({ organisationId }: InterestsRegisterTabPro
         <select 
           value={selectedPerson}
           onChange={e => setSelectedPerson(e.target.value)}
-          className="border rounded-md px-3 py-1.5 h-[36px] text-sm text-slate-700 bg-white shadow-sm w-48 outline-none"
+          className="border rounded-md px-3 py-1.5 h-[36px] text-sm text-slate-700 bg-white shadow-sm w-full sm:w-48 outline-none"
         >
-          <option value="all">Person</option>
+          <option value="all">All People</option>
           {uniqueUsers.map((p: any) => (
             <option key={p.id} value={p.id}>{p.name}</option>
           ))}
@@ -109,22 +109,22 @@ export function InterestsRegisterTab({ organisationId }: InterestsRegisterTabPro
       ) : (
         <div className="border rounded-xl bg-white shadow-sm w-full">
           <div className="overflow-x-auto w-full">
-            <table className="w-full text-sm text-left min-w-[600px]">
+            <table className="w-full text-sm text-left min-w-[500px] sm:min-w-[600px]">
             <thead className="bg-gray-50 text-slate-500 border-b">
               <tr>
-                <th className="px-6 py-4 font-medium">Person</th>
-                <th className="px-6 py-4 font-medium">Organisation</th>
-                <th className="px-6 py-4 font-medium">Nature of Interest</th>
-                <th className="px-6 py-4 font-medium">Notification Date</th>
+                <th className="px-3 sm:px-6 py-3 font-medium">Person</th>
+                <th className="px-3 sm:px-6 py-3 font-medium">Organisation</th>
+                <th className="px-3 sm:px-6 py-3 font-medium">Nature of Interest</th>
+                <th className="px-3 sm:px-6 py-3 font-medium">Notification Date</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {filteredInterests.map((interest: any) => (
                 <tr key={interest.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-slate-800">{interest.user?.name || interest.guestName}</td>
-                  <td className="px-6 py-4">{interest.title}</td>
-                  <td className="px-6 py-4 text-slate-600">{interest.description}</td>
-                  <td className="px-6 py-4 text-slate-500">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-slate-800">{interest.user?.name || interest.guestName}</td>
+                  <td className="px-3 sm:px-6 py-3 sm:py-4">{interest.title}</td>
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-600">{interest.description}</td>
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-500">
                     {interest.notificationDate ? new Date(interest.notificationDate).toLocaleDateString('en-GB', {
                       day: 'numeric', month: 'short', year: 'numeric'
                     }) : '-'}

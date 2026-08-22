@@ -203,16 +203,16 @@ export default function MinutesPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight break-words">
             {meeting.title} — Minutes
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {meeting.date} ({meeting.startTime} - {meeting.endTime})
+            {meeting.date || ""} ({meeting.startTime || ""} - {meeting.endTime || ""})
           </p>
         </div>
-        <Badge variant={status === "confirmed" ? "default" : "secondary"}>
+        <Badge variant={status === "confirmed" ? "default" : "secondary"} className="shrink-0">
           {statusLabels[status as MinutesStatus] || status}
         </Badge>
       </div>
@@ -306,7 +306,7 @@ export default function MinutesPage() {
         ))}
       </div>
 
-      <div className="mt-8 flex items-center gap-3">
+      <div className="mt-8 flex flex-wrap items-center gap-3">
         {status === "draft" && !disabled && (
           <button
             onClick={finishDraft}
@@ -414,7 +414,7 @@ function MinuteBlockEditor({
       />
 
       {block.blockType === "decision" && (
-        <div className="mt-2 grid grid-cols-3 gap-2">
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
           <Select
             value={block.decisionOutcome}
             disabled={locked}
@@ -422,7 +422,7 @@ function MinuteBlockEditor({
               onChange({ decisionOutcome: v as MinuteBlock["decisionOutcome"] })
             }
           >
-            <SelectTrigger>
+            <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -447,13 +447,13 @@ function MinuteBlockEditor({
       )}
 
       {block.blockType === "action" && (
-        <div className="mt-2 grid grid-cols-2 gap-2">
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
           <Select
             value={block.actionOwner || "unassigned"}
             disabled={locked}
             onValueChange={(v) => onChange({ actionOwner: v === "unassigned" ? "" : (v as any) })}
           >
-            <SelectTrigger>
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="Select Owner" />
             </SelectTrigger>
             <SelectContent>

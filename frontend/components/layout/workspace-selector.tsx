@@ -141,7 +141,7 @@ export function WorkspaceSelector({
       {isOpen && (
         <div className={cn(
           "absolute mt-1 bg-[#161824]/95 backdrop-blur-2xl border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden",
-          isCollapsed ? "w-[260px] ml-[44px] -top-2 left-0" : "w-[260px] top-full left-0"
+          isCollapsed ? "w-[260px] ml-[44px] -top-2 left-0" : "w-full max-w-[260px] top-full left-0"
         )}>
           {/* Search Bar */}
           <div className="relative p-2 border-b border-white/10">

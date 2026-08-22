@@ -30,13 +30,13 @@ export default function DecisionsPage() {
   const [resolutionOpen, setResolutionOpen] = useState(false);
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8">
+    <div className="p-3 sm:p-6 md:p-8 max-w-6xl mx-auto space-y-6 md:space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold flex items-baseline gap-2 text-slate-800">
+          <h1 className="text-xl font-semibold flex flex-wrap items-baseline gap-2 text-slate-800">
             Decisions Register
-            <span className="text-sm font-normal text-muted-foreground ml-2 hidden sm:inline-block">
+            <span className="text-sm font-normal text-muted-foreground hidden sm:inline-block">
               Central record of all decisions & circular resolutions
             </span>
           </h1>
@@ -45,22 +45,22 @@ export default function DecisionsPage() {
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input 
             type="search" 
-            placeholder="Search..." 
+            placeholder="Search decisions..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 bg-white border-slate-200"
+            className="pl-9 bg-white border-slate-200 w-full"
           />
         </div>
       </div>
 
       <Tabs defaultValue="decisions" className="w-full">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <TabsList className="bg-slate-100">
-            <TabsTrigger value="decisions">Meeting Decisions</TabsTrigger>
-            <TabsTrigger value="resolutions">Circular Resolutions</TabsTrigger>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <TabsList className="bg-slate-100 w-full sm:w-auto">
+            <TabsTrigger value="decisions" className="flex-1 sm:flex-none">Meeting Decisions</TabsTrigger>
+            <TabsTrigger value="resolutions" className="flex-1 sm:flex-none">Circular Resolutions</TabsTrigger>
           </TabsList>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <Button variant="outline" className="bg-white text-slate-600 font-normal h-9">
               <Filter className="mr-2 h-4 w-4 text-slate-400 shrink-0" /> Filter
             </Button>
@@ -74,35 +74,35 @@ export default function DecisionsPage() {
         </div>
 
         <TabsContent value="decisions" className="mt-6">
-          <div className="border rounded-xl bg-white shadow-sm overflow-x-auto min-h-[400px]">
+          <div className="border rounded-xl bg-white shadow-sm overflow-x-auto min-h-[300px]">
             {isLoadingDecisions ? (
               <div className="flex justify-center items-center h-full py-24"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>
             ) : allDecisions.length === 0 ? (
               <EmptyState message="No meeting decisions found" />
             ) : (
-              <table className="w-full text-sm text-left">
+              <table className="w-full text-sm text-left min-w-[500px] sm:min-w-[600px]">
                 <thead className="bg-gray-50 text-slate-500 border-b">
                   <tr>
-                    <th className="px-6 py-4 font-medium w-1/2">Decision</th>
-                    <th className="px-6 py-4 font-medium">Meeting</th>
-                    <th className="px-6 py-4 font-medium">Date</th>
-                    <th className="px-6 py-4 font-medium">Status</th>
+                    <th className="px-3 sm:px-6 py-3 font-medium sm:w-1/2">Decision</th>
+                    <th className="px-3 sm:px-6 py-3 font-medium">Meeting</th>
+                    <th className="px-3 sm:px-6 py-3 font-medium">Date</th>
+                    <th className="px-3 sm:px-6 py-3 font-medium">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y cursor-pointer">
                   {allDecisions.map((decision: any) => (
                     <tr key={decision.id} onClick={() => router.push(`/decisions/${decision.id}`)} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4">
                         <div className="font-medium text-slate-800">{decision.title}</div>
                         {decision.description && <div className="text-slate-500 mt-1 line-clamp-2">{decision.description}</div>}
                       </td>
-                      <td className="px-6 py-4 text-slate-500">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-500">
                         <span className="font-medium text-slate-700">{decision.meeting?.title || "Direct Decision"}</span>
                       </td>
-                      <td className="px-6 py-4 text-slate-500">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-500 whitespace-nowrap">
                         {new Date(decision.date).toLocaleDateString()}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                         <StatusBadge status={decision.status} />
                       </td>
                     </tr>
@@ -114,28 +114,28 @@ export default function DecisionsPage() {
         </TabsContent>
 
         <TabsContent value="resolutions" className="mt-6">
-          <div className="border rounded-xl bg-white shadow-sm overflow-x-auto min-h-[400px]">
+          <div className="border rounded-xl bg-white shadow-sm overflow-x-auto min-h-[300px]">
             {isLoadingResolutions ? (
               <div className="flex justify-center items-center h-full py-24"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>
             ) : allResolutions.length === 0 ? (
               <EmptyState message="No circular resolutions found" />
             ) : (
-              <table className="w-full text-sm text-left">
+              <table className="w-full text-sm text-left min-w-[500px] sm:min-w-[600px]">
                 <thead className="bg-gray-50 text-slate-500 border-b">
                   <tr>
-                    <th className="px-6 py-4 font-medium w-1/2">Resolution</th>
-                    <th className="px-6 py-4 font-medium">Deadline</th>
-                    <th className="px-6 py-4 font-medium">Status</th>
+                    <th className="px-3 sm:px-6 py-3 font-medium sm:w-1/2">Resolution</th>
+                    <th className="px-3 sm:px-6 py-3 font-medium">Deadline</th>
+                    <th className="px-3 sm:px-6 py-3 font-medium">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y cursor-pointer">
                   {allResolutions.map((res: any) => (
                     <tr key={res.id} onClick={() => router.push(`/resolutions/${res.id}`)} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4">
                         <div className="font-medium text-slate-800">{res.title}</div>
                         {res.description && <div className="text-slate-500 mt-1 line-clamp-2">{res.description}</div>}
                       </td>
-                      <td className="px-6 py-4 text-slate-500">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-slate-500 whitespace-nowrap">
                         {new Date(res.closeDate).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4">

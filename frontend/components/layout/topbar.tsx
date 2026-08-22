@@ -34,25 +34,25 @@ export function Topbar() {
 
   return (
     <>
-      <header className="flex h-16 items-center justify-between border-b border-border bg-white px-4 md:px-8 shrink-0 w-full sticky top-0 z-30">
-        <div className="flex-1 flex items-center gap-4">
+      <header className="flex h-16 items-center justify-between border-b border-border bg-white px-3 sm:px-4 md:px-8 shrink-0 w-full sticky top-0 z-30">
+        <div className="flex-1 flex items-center gap-2 sm:gap-4">
           {/* Mobile Hamburger Menu */}
           <Sheet>
-            <SheetTrigger render={<button aria-label="Open menu" className="md:hidden p-2 -ml-2 text-slate-500 hover:text-slate-900 transition-colors" />}>
+            <SheetTrigger render={<button aria-label="Open menu" className="md:hidden p-2 -ml-1 text-slate-500 hover:text-slate-900 transition-colors" />}>
               <Menu className="w-6 h-6" />
             </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-64 flex flex-col bg-[#f4f7f9]">
+            <SheetContent side="left" className="p-0 w-72 max-w-[85vw] flex flex-col bg-[#0f111a] text-white border-r border-white/10">
               <SidebarInner isCollapsed={false} />
             </SheetContent>
           </Sheet>
           {/* Can put breadcrumbs or global search here if needed */}
         </div>
 
-        <div className="flex items-center gap-3 md:gap-6 text-sm font-medium text-slate-600 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 md:gap-6 text-sm font-medium text-slate-600 shrink-0">
           <button 
             aria-label="Search"
             onClick={() => router.push('/search')}
-            className="hidden md:flex hover:text-slate-900 transition-colors items-center gap-2"
+            className="flex hover:text-slate-900 transition-colors items-center gap-2 p-1.5 rounded-md hover:bg-slate-100"
           >
             <Search className="w-4 h-4" />
           </button>
@@ -74,17 +74,17 @@ export function Topbar() {
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger 
             render={
-              <button aria-label="Notifications" type="button" className="outline-none relative hover:text-slate-900 transition-colors flex items-center justify-center shrink-0 cursor-pointer" />
+              <button aria-label="Notifications" type="button" className="outline-none relative hover:text-slate-900 transition-colors flex items-center justify-center shrink-0 cursor-pointer p-1.5 rounded-md hover:bg-slate-100" />
             }
           >
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+              <span className="absolute 0 top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
                 {unreadCount}
               </span>
             )}
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" side="bottom" sideOffset={8} alignOffset={0} className="w-80 max-h-96 overflow-y-auto">
+          <DropdownMenuContent align="end" side="bottom" sideOffset={8} alignOffset={0} className="w-[calc(100vw-2rem)] sm:w-80 max-h-96 overflow-y-auto">
             <div className="flex items-center justify-between px-4 py-2 border-b">
               <span className="font-semibold text-sm">Notifications</span>
               {unreadCount > 0 && (
@@ -130,7 +130,7 @@ export function Topbar() {
               </AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" side="bottom" sideOffset={8} alignOffset={0} className="w-56">
+          <DropdownMenuContent align="end" side="bottom" sideOffset={8} alignOffset={0} className="w-56 max-w-[calc(100vw-2rem)]">
             <div className="flex flex-col space-y-1 p-3 border-b mb-1">
               <p className="text-sm font-semibold leading-none text-slate-800 truncate">{user?.name}</p>
               <p className="text-xs leading-none text-slate-500 mt-1.5 truncate">{user?.email}</p>

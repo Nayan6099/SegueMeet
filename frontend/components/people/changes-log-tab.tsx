@@ -91,11 +91,11 @@ export function ChangesLogTab({ organisationId }: { organisationId: string }) {
       </div>
 
       {/* Filters Mock */}
-      <div className="flex items-center gap-4 py-2 border-b">
-        <select className="border rounded-md px-3 py-1.5 text-sm text-slate-700 bg-white shadow-sm w-48 outline-none">
+      <div className="flex flex-wrap items-center gap-3 sm:gap-4 py-2 border-b">
+        <select className="border rounded-md px-3 py-1.5 text-sm text-slate-700 bg-white shadow-sm w-full sm:w-48 outline-none">
           <option>Change by</option>
         </select>
-        <select className="border rounded-md px-3 py-1.5 text-sm text-slate-700 bg-white shadow-sm w-48 outline-none">
+        <select className="border rounded-md px-3 py-1.5 text-sm text-slate-700 bg-white shadow-sm w-full sm:w-48 outline-none">
           <option>Person</option>
         </select>
       </div>

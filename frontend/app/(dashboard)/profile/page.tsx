@@ -100,13 +100,13 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-8">
+    <div className="p-3 sm:p-6 md:p-8 max-w-5xl mx-auto space-y-6 md:space-y-8">
       {/* Header */}
-      <div className="flex items-start justify-between mb-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-2">
         <div>
-          <h1 className="text-xl font-semibold flex items-baseline gap-2 text-slate-800">
+          <h1 className="text-xl font-semibold flex flex-wrap items-baseline gap-2 text-slate-800">
             My Account
-            <span className="text-sm font-normal text-muted-foreground ml-2">
+            <span className="text-sm font-normal text-muted-foreground hidden sm:inline-block">
               Manage your account details
             </span>
           </h1>
@@ -115,22 +115,22 @@ export default function ProfilePage() {
 
       <Tabs defaultValue={defaultTab} className="w-full">
         <div className="flex items-center justify-between border-b pb-0 mb-6">
-          <TabsList className="bg-transparent h-auto p-0 rounded-none border-none flex-nowrap overflow-x-auto w-full justify-start space-x-4 md:space-x-6 scrollbar-hide">
+          <TabsList className="bg-transparent h-auto p-0 rounded-none border-none flex-nowrap overflow-x-auto w-full justify-start space-x-3 sm:space-x-6 no-scrollbar">
             <TabsTrigger
               value="account"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-semibold text-slate-700 hover:text-slate-900"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-semibold text-slate-700 hover:text-slate-900 whitespace-nowrap"
             >
               My Account
             </TabsTrigger>
             <TabsTrigger
               value="security"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-slate-500 hover:text-slate-700"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-slate-500 hover:text-slate-700 whitespace-nowrap"
             >
               Login & Security
             </TabsTrigger>
             <TabsTrigger
               value="organisations"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-slate-500 hover:text-slate-700"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 py-2 font-medium text-slate-500 hover:text-slate-700 whitespace-nowrap"
             >
               Organisations
             </TabsTrigger>
@@ -142,13 +142,13 @@ export default function ProfilePage() {
             <Button 
               onClick={() => updateMutation.mutate()} 
               disabled={updateMutation.isPending}
-              className="bg-[#d4cae5] hover:bg-[#c4b5db] text-[#581c87] font-medium px-6 h-9 rounded-md transition-colors"
+              className="bg-[#d4cae5] hover:bg-[#c4b5db] text-[#581c87] font-medium px-6 h-9 rounded-md transition-colors w-full sm:w-auto"
             >
               {updateMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               Save Changes
             </Button>
           </div>
-          <div className="divide-y divide-slate-100 bg-white border border-slate-100 rounded-lg p-4 md:p-8 shadow-sm">
+          <div className="divide-y divide-slate-100 bg-white border border-slate-100 rounded-lg p-4 sm:p-6 md:p-8 shadow-sm">
             
             {/* First Name */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-12 py-6 first:pt-0">

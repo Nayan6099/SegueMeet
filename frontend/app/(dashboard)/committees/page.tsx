@@ -52,19 +52,19 @@ export default function CommitteesPage() {
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-8">
+    <div className="p-3 sm:p-6 md:p-8 max-w-6xl mx-auto space-y-6 md:space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold flex items-baseline gap-2 text-slate-800">
+          <h1 className="text-xl font-semibold flex flex-wrap items-baseline gap-2 text-slate-800">
             Committees
-            <span className="text-sm font-normal text-muted-foreground ml-2 hidden sm:inline-block">
+            <span className="text-sm font-normal text-muted-foreground hidden sm:inline-block">
               Manage your committees
             </span>
           </h1>
         </div>
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-[#1e1b4b] hover:bg-[#2e2b5b] text-white rounded-md px-6 h-9 self-start sm:self-auto">
+          <DialogTrigger className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-[#1e1b4b] hover:bg-[#2e2b5b] text-white rounded-md px-4 sm:px-6 h-9 self-start sm:self-auto cursor-pointer">
             + Add Committee
           </DialogTrigger>
           <DialogContent>
@@ -98,7 +98,8 @@ export default function CommitteesPage() {
                   type="submit" 
                   disabled={!newCommitteeName.trim() || createCommittee.isPending}
                 >
-                  {createCommittee.isPending ? "Creating..." : "Create Committee"}
+                  {createCommittee.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Create Committee
                 </Button>
               </div>
             </form>
@@ -110,7 +111,7 @@ export default function CommitteesPage() {
       {isLoading ? (
         <div className="flex justify-center py-24"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>
       ) : committees.length === 0 ? (
-        <div className="border border-slate-200 rounded-xl bg-white h-[60vh] flex flex-col items-center justify-center text-center shadow-sm">
+        <div className="border border-slate-200 rounded-xl bg-white p-8 sm:p-16 md:p-24 flex flex-col items-center justify-center text-center shadow-sm">
           <div className="bg-slate-100 p-6 rounded-2xl mb-4">
             <Tent className="w-10 h-10 text-slate-400" />
           </div>
@@ -121,14 +122,14 @@ export default function CommitteesPage() {
           {committees.map((committee: any) => (
             <div 
               key={committee.id} 
-              className="group border border-slate-200 rounded-xl bg-white p-6 shadow-sm hover:shadow-md transition-all hover:border-slate-300 relative"
+              className="group border border-slate-200 rounded-xl bg-white p-5 sm:p-6 shadow-sm hover:shadow-md transition-all hover:border-slate-300 relative"
             >
               <div className="flex items-start justify-between">
                 <h3 className="font-semibold text-lg text-slate-800 pr-8">{committee.name}</h3>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="absolute top-4 right-4 h-8 w-8 text-slate-400 hover:text-slate-700 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-4 right-4 h-8 w-8 text-slate-400 hover:text-slate-700 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                   onClick={() => setEditingCommittee(committee)}
                 >
                   <Settings2 className="w-4 h-4" />

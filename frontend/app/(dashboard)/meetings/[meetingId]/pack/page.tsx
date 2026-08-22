@@ -113,18 +113,18 @@ export default function BoardPackPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-tight">
             Board Pack
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Auto-compiled from the published agenda
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {data.boardPack && (
-            <Badge variant="secondary" className="font-normal text-xs py-1 px-2 hidden sm:inline-flex">
+            <Badge variant="secondary" className="font-normal text-xs py-1 px-2">
               Version {data.boardPack.version} · {new Date(data.boardPack.publishedAt).toLocaleDateString()}
             </Badge>
           )}
